@@ -23,7 +23,8 @@ function Activity({ runs }) {
   if (!columns.length) return <p className="muted">No runs recorded yet.</p>;
   return (
     <>
-      <div className="activity" role="img" aria-label="Passed and failed runs over time">
+      <div className="activity-scale">Peak bucket: {max} {max === 1 ? "run" : "runs"}</div>
+      <div className="activity" role="img" aria-label={`Passed and failed runs over time. Largest time bucket: ${max} runs.`}>
         {columns.map((c, i) => (
           <div className="col" key={i} title={`${c.label}: ${c.passed} passed, ${c.failed} failed`}>
             <span className="p" style={{ height: (c.passed / max) * 100 + "%" }} />
@@ -60,7 +61,7 @@ export default function Runs({ runs, stats, loading, openRun, go, reload }) {
   return (
     <>
       <PageHead
-        title="Recorded runs"
+        title="Execution overview"
         actions={
           <>
             <button className="btn" onClick={() => go("break")}>
@@ -72,8 +73,7 @@ export default function Runs({ runs, stats, loading, openRun, go, reload }) {
           </>
         }
       >
-        Every agent run is recorded step by step. Failed runs are diagnosed automatically: open one to see which step
-        caused it.
+        Your executions, their outcomes, and the evidence behind each failure. Open a run to investigate its next possible path.
       </PageHead>
 
       <div className="stats">
@@ -88,18 +88,18 @@ export default function Runs({ runs, stats, loading, openRun, go, reload }) {
           label="Time to diagnose"
           value={stats?.diagnosis_latency_ms != null ? Math.round(stats.diagnosis_latency_ms) : "—"}
           unit={stats?.diagnosis_latency_ms != null ? "ms" : ""}
-          note={ensemble ? "per run, trained models on GPU" : "rule-based fallback (no trained models)"}
+          note={ensemble ? "trained diagnosis · per run" : "rule-based diagnosis · per run"}
         />
         <Stat
-          label="Suspect is the true origin"
+          label={ensemble ? "Model localization" : "Baseline localization"}
           value={stats?.top1 != null ? percent(stats.top1, 1) : "—"}
           tone={stats?.top1 != null ? "tone-pass" : ""}
-          note={stats?.top1 != null ? "top-1 on held-out GPT-6 Luna test runs" : "run the evaluation to measure"}
+          note={stats?.top1 != null ? <button className="text-link metric-link" onClick={() => go("evaluation")}>Top-1 on held-out test runs · view protocol ↗</button> : "not evaluated yet"}
         />
       </div>
 
       <div className="grid-2" style={{ marginBottom: 20 }}>
-        <Panel title="Where failures start" aside={failedTotal ? `${failedTotal} failed runs` : null}>
+        <Panel title="Leading failure suspects" className="suspects-panel" aside={failedTotal ? `${failedTotal} failed ${failedTotal === 1 ? "run" : "runs"}` : null}>
           {components.length ? (
             <div className="hbars">
               {components.slice(0, 5).map((c, i) => (
@@ -117,17 +117,18 @@ export default function Runs({ runs, stats, loading, openRun, go, reload }) {
           )}
           {components.length > 0 && (
             <p className="small muted" style={{ marginTop: 14 }}>
-              {percent(components[0].count / failedTotal, 0)} of failures begin at <strong>{nodeLabel(components[0].component)}</strong>.
+              {percent(components[0].count / failedTotal, 0)} of failed runs point to <strong>{nodeLabel(components[0].component)}</strong>.
               Tokens recorded {(stats?.total_tokens || 0).toLocaleString()} · OpenAI spend {money(stats?.cost_usd)}.
             </p>
           )}
         </Panel>
-        <Panel title="Activity" aside="passed vs failed over time">
+        <Panel title="Activity" aside="Runs per time bucket">
           <Activity runs={runs} />
         </Panel>
       </div>
 
       <section className="panel">
+        <div className="panel-head"><h2>Recorded runs</h2><span className="aside">{visible.length} of {runs.length} runs · select a task to investigate</span></div>
         <div className="toolbar">
           <div className="segmented">
             {[
@@ -135,7 +136,7 @@ export default function Runs({ runs, stats, loading, openRun, go, reload }) {
               ["FAILED", `Failed (${runs.filter((r) => r.status === "FAILED").length})`],
               ["PASSED", "Passed"],
             ].map(([id, label]) => (
-              <button key={id} className={status === id ? "active" : ""} onClick={() => setStatus(id)}>
+              <button key={id} aria-pressed={status === id} className={status === id ? "active" : ""} onClick={() => setStatus(id)}>
                 {label}
               </button>
             ))}
@@ -172,7 +173,7 @@ export default function Runs({ runs, stats, loading, openRun, go, reload }) {
                 return (
                   <tr key={r.run_id} className="clickable" onClick={() => openRun(r.run_id)}>
                     <td className="task-cell">
-                      <strong title={r.prompt}>{r.prompt || "—"}</strong>
+                      <button onClick={e => { e.stopPropagation(); openRun(r.run_id); }} aria-label={`Investigate ${r.prompt || r.run_id}`}><strong title={r.prompt}>{r.prompt || "—"}</strong></button>
                       <span>
                         {familyLabels[r.task_family] || r.task_family} · {r.llm_provider === "sandbox" || !r.model ? "sandbox" : r.model} · {short(r.run_id)}
                         {r.fault_type ? " · injected: " + nodeLabel(r.fault_type) : ""}
@@ -183,14 +184,14 @@ export default function Runs({ runs, stats, loading, openRun, go, reload }) {
                       <StatusBadge status={r.status} />
                     </td>
                     <td>
-                      <MiniTape count={r.step_count || 10} suspect={root?.step} status={r.status} />
+                      <MiniTape count={r.step_count || 10} suspect={r.status === "FAILED" ? root?.step : null} status={r.status} />
                       <div className="small" style={{ marginTop: 6 }}>
                         {r.status === "FAILED" && root ? (
                           <>
-                            <strong>Step {root.step}</strong> · {nodeLabel(root.node)} <span className="muted">({percent(root.confidence, 0)})</span>
+                            <strong>Step {root.step}</strong> · {nodeLabel(root.node)}
                           </>
                         ) : (
-                          <span className="muted">no failure</span>
+                          <span className="muted">{r.status === "PASSED" ? "Checks passed" : "Awaiting diagnosis"}</span>
                         )}
                       </div>
                     </td>

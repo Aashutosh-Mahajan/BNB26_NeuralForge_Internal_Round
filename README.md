@@ -80,6 +80,8 @@ cd dashboard; npm ci; npm run build; cd ..
 
 Open http://localhost:8010. For a clean demo database: `$env:BLACKBOX_DB="data/demo.db"` before starting (it seeds runs, including an older quote so a "recent cached quote" fix is tested and rejected).
 
+The dashboard opens on the product homepage. Choose **Open workspace** for the execution overview, or **Record a run** to begin recording. Workspace sections have hash URLs (for example `/#runs`, `/#replay`, and `/#evaluation`), and individual investigations can be opened directly with `/#run/<run_id>`. A failed-run investigation shows its acceptance checks, the leading suspect, and an **Alternatives** panel where candidates are tested from the same checkpoint and compared; **Explore alternatives** opens the replay workbench for a custom patch. Suggestions stay labelled as untested until a replay checks their outcome. See `UI_AUDIT.md` for the interface review.
+
 Wrap your own LangGraph agent:
 
 ```python

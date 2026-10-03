@@ -1,0 +1,37 @@
+import { ArrowRight, ArrowUpRight, Check, CheckCircle2, ChevronRight, CircleDot, Database, GitBranch, GitCompareArrows, Layers3, Play, Radar, RotateCcw, ScanLine, ShieldCheck } from "lucide-react";
+
+const CAPABILITIES = [
+  [ScanLine, "A record of every step", "Keep inputs, outputs, tool calls, and state changes together in one inspectable execution history."],
+  [Radar, "Find the likely origin", "Follow the evidence to a suspicious decision, even when the failure appears much later."],
+  [GitBranch, "Explore alternatives", "Change a suspected step and test a different approach from a saved checkpoint."],
+  [GitCompareArrows, "See what changed", "Compare the original and repaired traces. Understand what ran again and what was preserved."],
+];
+
+function TraceIllustration() {
+  return <div className="hero-visual" aria-label="Illustrative agent investigation, not a measured execution">
+    <div className="visual-orbit orbit-one" /><div className="visual-orbit orbit-two" />
+    <div className="visual-coordinate coordinate-top">TRACE / 0042</div><div className="visual-coordinate coordinate-bottom">OBSERVE. UNDERSTAND. RECOVER.</div>
+    <div className="trace-window"><div className="trace-window-header"><div className="window-dots"><i /><i /><i /></div><span>execution.trace</span><span className="example-tag">ILLUSTRATION</span></div>
+      <div className="trace-window-body"><div className="trace-kicker"><span className="status-dot" /> AGENT EXECUTION</div><h3>A small error.<br />A visible origin.</h3><div className="illustration-steps">
+        <div className="illustration-step"><span className="step-symbol"><Check size={14} /></span><span><strong>Interpret request</strong><small>Amount and currencies extracted</small></span><span className="step-number">01</span></div>
+        <div className="illustration-step suspect"><span className="step-symbol"><CircleDot size={16} /></span><span><strong>Fetch exchange rate</strong><small>Quote exceeds freshness requirement</small></span><span className="step-number">02</span></div>
+        <div className="illustration-step downstream"><span className="step-symbol"><Layers3 size={14} /></span><span><strong>Calculate conversion</strong><small>Depends on the suspect quote</small></span><span className="step-number">03</span></div>
+      </div><div className="illustration-alternative"><GitBranch size={17} /><div><strong>An alternative worth testing</strong><span>Fetch a fresh quote from a backup source</span></div><ArrowUpRight size={16} /></div></div>
+      <div className="trace-window-footer"><ShieldCheck size={14} /> Evidence first. Verification next.</div></div>
+    <div className="checkpoint-float"><span><RotateCcw size={18} /></span><div><strong>Resume from a checkpoint</strong><small>Preserve the work that still holds.</small></div></div>
+  </div>;
+}
+
+export default function Home({ go, Brand }) {
+  const scrollTo = id => document.getElementById(id)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+  return <div className="landing"><a className="skip-link" href="#home-content" onClick={e => { e.preventDefault(); document.getElementById("home-content")?.focus(); }}>Skip to content</a>
+    <header className="landing-header"><Brand onClick={() => go("home")} /><nav aria-label="Product navigation"><button onClick={() => scrollTo("how-it-works")}>How it works</button><button onClick={() => scrollTo("capabilities")}>Capabilities</button><button onClick={() => go("evaluation")}>Evaluation</button></nav><button className="btn primary" onClick={() => go("runs")}>Open workspace <ArrowUpRight size={16} /></button></header>
+    <main id="home-content" className="landing-main" tabIndex={-1}>
+      <section className="hero"><div className="hero-copy"><span className="eyebrow-pill"><span className="status-dot" /> A FLIGHT RECORDER FOR AI AGENTS</span><h1>Every step recorded.<br /><span>Every failure<br />understood.</span></h1><p>Your agent took a wrong turn. Find where it happened, see the evidence, and explore a better path without starting over.</p><div className="hero-actions"><button className="btn primary" onClick={() => go("runs")}>Explore the workspace <ArrowRight size={17} /></button><button className="btn" onClick={() => go("live")}><Play size={15} /> Record a run</button></div><div className="hero-assurances"><span><Check size={14} /> Checkpointed replay</span><span><Check size={14} /> Evidence-based diagnosis</span></div></div><TraceIllustration /></section>
+      <section className="product-strip" aria-label="Investigation workflow"><span>CLARITY AT EVERY STAGE</span><div><Database size={17} /> Record <ChevronRight size={15} /><Radar size={17} /> Investigate <ChevronRight size={15} /><GitBranch size={17} /> Test alternatives <ChevronRight size={15} /><CheckCircle2 size={17} /> Verify</div></section>
+      <section className="capability-section" id="capabilities"><div className="section-intro"><div><span className="eyebrow">FROM TRACE TO UNDERSTANDING</span><h2>More than a log.<br />A place to investigate.</h2></div><p>Bring the execution, the evidence, and the next possible move into one clear workspace.</p></div><div className="capability-grid">{CAPABILITIES.map(([Icon, title, description], i) => <article className="capability-card" key={title}><div className="capability-top"><span className="feature-icon"><Icon size={23} strokeWidth={1.6} /></span><span>0{i + 1}</span></div><h3>{title}</h3><p>{description}</p></article>)}</div></section>
+      <section className="how-section" id="how-it-works"><div className="how-copy"><span className="eyebrow">A BETTER DEBUGGING LOOP</span><h2>Keep the context.<br />Change the outcome.</h2><p>A failed answer is the beginning of an investigation. Work backward through the evidence, then move forward with a tested alternative.</p><button className="text-link" onClick={() => go("break")}>Try the failure lab <ArrowRight size={17} /></button></div><div className="how-list">{[["01", "Capture the execution", "Record what the agent saw, called, and changed."], ["02", "Inspect the suspect", "Separate the likely origin from its downstream effects."], ["03", "Test a different path", "Fork from a checkpoint and compare the resulting outcome."]].map(([n, title, text]) => <div key={n}><span>{n}</span><div><h3>{title}</h3><p>{text}</p></div></div>)}</div></section>
+      <section className="landing-cta"><div><span className="eyebrow">YOUR NEXT RUN, WITH MORE CLARITY</span><h2>Make the invisible execution visible.</h2><p>Start with a recorded run. Follow it all the way to the evidence.</p></div><button className="btn primary" onClick={() => go("runs")}>Enter Black Box <ArrowUpRight size={18} /></button></section>
+    </main><footer className="landing-footer"><Brand onClick={() => go("home")} /><span>Built for the moments an agent goes off course.</span><button className="text-link" onClick={() => go("runs")}>Open workspace <ArrowUpRight size={15} /></button></footer>
+  </div>;
+}

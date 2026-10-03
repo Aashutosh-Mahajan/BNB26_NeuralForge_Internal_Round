@@ -12,19 +12,19 @@ const SPLITS = [
   ["validation", "Validation"],
 ];
 const SPLIT_NOTE = {
-  test: "Broken runs whose task wording never appeared in training.",
-  unseen_fault: "Fault types 10–12 (premature answer, memory overwrite, loops) were never shown to the models.",
-  natural_failures: "Mistakes the agent made by itself, labelled by counterfactual replay. From the offline agent: GPT-6 Luna made none in 793 runs.",
-  cross_provider: "Models trained only on the offline agent, tested on GPT-6 Luna runs they never saw.",
-  validation: "Used to tune the ensemble weights; shown for completeness.",
+  test: "Held-out task templates. Interpretation depends on the diagnosis method and report protocol.",
+  unseen_fault: "Fault types withheld from the training split. Authored rules may still anticipate their symptoms.",
+  natural_failures: "Failures that occurred without injected faults, with labels established through review or counterfactual experiments.",
+  cross_provider: "Transfer to executions from another agent model. Refer to the report for training and test populations.",
+  validation: "Development split used for model selection or calibration; separate from the final test set.",
 };
 const NAMES = {
   ensemble: "Black Box (ensemble)",
   m1: "Transformer alone",
   m2: "LightGBM alone",
   m3: "Anomaly detector alone",
-  llm_all_at_once: "GPT-6 Luna as judge",
-  llm_step_by_step: "GPT-6 Luna, step by step",
+  llm_all_at_once: "LLM judge · full trace",
+  llm_step_by_step: "LLM judge · step by step",
   heuristic_rules: "Hand-written rules",
   first_tool_error: "First step with an error",
   random: "Random step",
@@ -42,7 +42,7 @@ function Scorecard({ m }) {
     ["Time to diagnose one run", "< 1 s", m.latency_ms != null ? Math.round(m.latency_ms) + " ms" : "—", m.latency_ms < 1000],
   ];
   return (
-    <Panel title="Targets from the plan" aside="measured on held-out data">
+    <Panel title="Project targets" aside="planning goals · not hackathon thresholds">
       <div className="table-wrap">
         <table>
           <thead>
@@ -59,10 +59,10 @@ function Scorecard({ m }) {
                 <td>{goal}</td>
                 <td className="num-cell">{target}</td>
                 <td className="num-cell" style={{ fontWeight: 700, fontSize: 15 }}>
-                  {value}
+                  {value ?? "—"}
                 </td>
                 <td>
-                  <span className={"badge " + (ok ? "passed" : "failed")}>{ok ? "Met" : "Not met"}</span>
+                  <span className={"badge " + (value == null || value === "—" || value === "not measured" ? "error" : ok ? "passed" : "failed")}>{value == null || value === "—" || value === "not measured" ? "Unmeasured" : ok ? "Met" : "Not met"}</span>
                 </td>
               </tr>
             ))}
@@ -72,9 +72,7 @@ function Scorecard({ m }) {
       {m.llm_judge_top1 != null && (
         <div className="note warn section-gap">
           <span>
-            On our traces GPT-6 Luna is a strong judge ({percent(m.llm_judge_top1, 0)}), so Black Box wins by{" "}
-            {m.llm_improvement_ratio?.toFixed(2)}×, not 2×. Black Box answers in {Math.round(m.latency_ms)} ms without an API call
-            and proves its answer by replay.
+            Recorded LLM-judge top-1: {percent(m.llm_judge_top1, 0)}. Reported relative localization ratio: {m.llm_improvement_ratio != null ? m.llm_improvement_ratio.toFixed(2) + "×" : "unavailable"}. Replay is a separate intervention check.
           </span>
         </div>
       )}
@@ -138,8 +136,8 @@ export default function Evaluation() {
     api("/eval").then(setM).catch((e) => setError(e.message));
   }, []);
   if (error) return <div className="note bad">{error}</div>;
-  if (!m) return null;
-  if (!m.splits)
+  if (!m) return <><PageHead title="Model evaluation">Loading the saved evaluation report.</PageHead><Panel><Empty title="Loading measured results…" /></Panel></>;
+  if (m.status === "not_available" || !m.splits || !Object.keys(m.splits).length)
     return (
       <>
         <PageHead title="Evaluation" />
@@ -154,14 +152,15 @@ export default function Evaluation() {
   const data = split === "cross_provider" ? m.cross_provider : m.splits[split];
   const rows = data
     ? [
+        ...(!data.models?.ensemble && data.top1 != null ? [["current_method", data.top1]] : []),
         ...["ensemble", "m1", "m2", "m3"].map((k) => [k, data.models?.[k]?.top1]),
         ...Object.entries(data.baselines || {}).map(([k, v]) => [k, v?.top1]),
       ]
         .filter(([, v]) => v != null)
         .map(([k, v]) => ({
-          label: NAMES[k] || nodeLabel(k),
+          label: k === "current_method" ? m.method === "ensemble" ? "Black Box" : "Black Box · rules baseline" : NAMES[k] || nodeLabel(k),
           value: v,
-          kind: k === "ensemble" ? "ours" : k.startsWith("llm") ? "llm" : "",
+          kind: k === "ensemble" || k === "current_method" ? "ours" : k.startsWith("llm") ? "llm" : "",
         }))
     : [];
   const ww = m.public_benchmarks?.who_and_when;
@@ -169,10 +168,11 @@ export default function Evaluation() {
 
   return (
     <>
-      <PageHead title="How accurate is it?">
-        Every number here is measured on runs the models never trained on and read from <code>metrics.json</code>.
+      <PageHead title="Model evaluation">
+        Saved measurements, comparison baselines, and the limits of the evidence. Results come from the evaluation report.
         {manifests.length > 0 && <> Agent data: {manifests.map((x) => `${x.runs.toLocaleString()} runs from ${x.model}`).join(", ")}.</>}
       </PageHead>
+      <div className="note section-gap" style={{ marginBottom: 22 }}><FlaskConical size={18} /><div><strong>{m.model_status === "heuristic_not_trained" ? "Rules baseline · no trained ensemble in this report" : "Saved evaluation artifact"}</strong><p>{m.provenance?.limitations?.[0] || "Review the dataset, split definitions, and diagnosis method before interpreting these measurements."}</p></div></div>
       <Scorecard m={m} />
 
       <h2 className="section-gap" style={{ fontSize: 26, margin: "28px 0 12px" }}>
@@ -197,7 +197,7 @@ export default function Evaluation() {
           <Panel title="Compared with other ways to find the step" aside="top-1 accuracy">
             <HBars rows={rows} />
             <p className="small muted" style={{ marginTop: 12 }}>
-              GPT-6 Luna judges were run on a sample of 100 broken runs to limit cost.
+              {rows.some(r => r.kind === "llm") ? "LLM-judge measurements are shown only where recorded in this report." : "No LLM-judge measurement is recorded for this split."}
             </p>
           </Panel>
           {(split === "test" || split === "unseen_fault") && (
@@ -241,14 +241,13 @@ export default function Evaluation() {
           <Panel title="Public benchmark: Who&When" aside={`${ww.cases} real multi-agent failures, ~${Math.round(ww.mean_steps)} steps each`}>
             <HBars
               rows={Object.entries(ww.results).map(([k, v]) => ({
-                label: k.startsWith("llm") ? "GPT-6 Luna as judge" : k === "in_domain_lightgbm_5fold_cv" ? "Black Box, trained on it" : k === "ensemble" ? "Black Box, no retraining" : nodeLabel(k),
+                label: k.startsWith("llm") ? "LLM as judge" : k === "in_domain_lightgbm_5fold_cv" ? "Black Box, trained on it" : k === "ensemble" ? "Black Box, no retraining" : nodeLabel(k),
                 value: v.top1,
                 kind: k.startsWith("llm") ? "llm" : k === "in_domain_lightgbm_5fold_cv" ? "ours" : "",
               }))}
             />
             <p className="small muted" style={{ marginTop: 12 }}>
-              Long free-text conversations are much harder. A frontier LLM judge is ahead here; the paper reports 8–25% for older prompted
-              LLMs.
+              This benchmark measures failure attribution. It does not establish checkpoint restoration or repair correctness.
             </p>
           </Panel>
         )}
@@ -271,22 +270,22 @@ export default function Evaluation() {
       </div>
 
       {m.replay && (
-        <Panel className="section-gap" title="Replay" aside={`${m.replay.attempted_runs} broken runs, top suspect fixed automatically`}>
+        <Panel className="section-gap" title="Replay evaluation" aside={`${m.replay.attempted_runs ?? "—"} attempted runs`}>
           <div className="metric-row" style={{ margin: 0 }}>
             <div>
-              <strong>{percent(m.replay.fix_success_rate, 0)}</strong>
+              <strong>{percent(m.replay.fix_success_rate ?? m.replay.success_rate, 0)}</strong>
               <span>automatic fixes that restored the answer</span>
             </div>
             <div>
-              <strong>{Number(m.replay.avoided_steps_pct).toFixed(0)}%</strong>
+              <strong>{m.replay.avoided_steps_pct != null ? Number(m.replay.avoided_steps_pct).toFixed(0) + "%" : "—"}</strong>
               <span>steps not re-run</span>
             </div>
             <div>
-              <strong>{Number(m.replay.tokens_saved_pct_without_cache).toFixed(0)}%</strong>
+              <strong>{m.replay.tokens_saved_pct_without_cache != null ? Number(m.replay.tokens_saved_pct_without_cache).toFixed(0) + "%" : "—"}</strong>
               <span>tokens saved by checkpoints</span>
             </div>
             <div>
-              <strong>{Math.round(m.latency_ms)} ms</strong>
+              <strong>{m.latency_ms != null ? Math.round(m.latency_ms) + " ms" : "—"}</strong>
               <span>to diagnose one run</span>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, ArrowLeft, Download, FileCode2, Sparkles, Zap } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Download, FileCode2, GitBranch, Sparkles, Zap } from "lucide-react";
 import { api, diagnosisOf, familyLabels, money, nodeLabel, percent, post, short } from "../api";
 import { BUILTIN_CAPS, Capabilities, DepGraph, Json, Panel, Segmented, StatusBadge, Tape } from "../ui";
 import Alternatives, { CheckList } from "./Alternatives";
@@ -149,7 +149,7 @@ function Inspector({ step }) {
   );
 }
 
-export default function RunDetail({ run: initial, onBack, onBreak }) {
+export default function RunDetail({ run: initial, onBack, onReplay, onBreak }) {
   const [run, setRun] = useState(initial);
   useEffect(() => setRun(initial), [initial]);
   const refresh = () => api("/runs/" + run.run_id).then(setRun).catch(() => {});
@@ -203,6 +203,11 @@ export default function RunDetail({ run: initial, onBack, onBreak }) {
               <button className="btn" onClick={() => download(`/runs/${run.run_id}/regression-test`)}>
                 <FileCode2 size={16} /> Export test
               </button>
+              {onReplay && !external && (
+                <button className="btn primary" onClick={() => onReplay()} title="Open the replay workbench for a custom alternative">
+                  <GitBranch size={16} /> Explore alternatives
+                </button>
+              )}
             </>
           ) : crashed || external ? null : (
             <button className="btn primary" onClick={onBreak}>
@@ -284,6 +289,10 @@ export default function RunDetail({ run: initial, onBack, onBreak }) {
             <div className="gauge">
               <div className="stat-value tone-root">{percent(root.confidence, 0)}</div>
               <div className="stat-note">ranking score (not a probability)</div>
+            </div>
+            <div className="gauge">
+              <div className="stat-value">{percent(d.p_fail, 0)}</div>
+              <div className="stat-note">{d.method === "ensemble" ? "failure score" : "uncalibrated failure score"}</div>
             </div>
             <div className="gauge">
               <div className="stat-value">{d.top_suspects?.length > 1 ? "Step " + d.top_suspects[1].step : "—"}</div>
