@@ -9,7 +9,7 @@ const ACTION_LEGEND = [
   ["#f0a020", "Patched / re-run"],
 ];
 
-export default function Replay({ runs, selected, setSelected, onCompare, onUpdate }) {
+export default function Replay({ runs, selected, setSelected, initialCandidate, onCompare, onUpdate }) {
   const [id, setId] = useState(selected?.run_id || runs.find((r) => r.status === "FAILED")?.run_id || "");
   const [step, setStep] = useState(diagnosisOf(selected).root_cause?.step || 3);
   const [mode, setMode] = useState("output");
@@ -32,7 +32,7 @@ export default function Replay({ runs, selected, setSelected, onCompare, onUpdat
       .then((r) => {
         if (!live) return;
         setSelected(r);
-        setStep(diagnosisOf(r).root_cause?.step || r.steps[0]?.step_id || 1);
+        setStep(initialCandidate?.runId === id ? initialCandidate.step : diagnosisOf(r).root_cause?.step || r.steps[0]?.step_id || 1);
         setResult(null);
         setReplayRun(null);
       })
@@ -40,7 +40,7 @@ export default function Replay({ runs, selected, setSelected, onCompare, onUpdat
     return () => {
       live = false;
     };
-  }, [id]);
+  }, [id, initialCandidate]);
   useEffect(() => {
     if (!id) return;
     let live = true;
@@ -49,15 +49,16 @@ export default function Replay({ runs, selected, setSelected, onCompare, onUpdat
       .then((r) => {
         if (!live) return;
         setOptions(r.options || []);
-        setPicked(0);
-        setPatch(pretty(r.options?.[0]?.patch?.output ?? {}));
+        const chosen = initialCandidate?.runId === id && initialCandidate.step === step ? initialCandidate.patch?.output : undefined;
+        setPicked(chosen === undefined ? 0 : (r.options || []).findIndex(o => pretty(o.patch.output) === pretty(chosen)));
+        setPatch(pretty(chosen === undefined ? r.options?.[0]?.patch?.output ?? {} : chosen));
         setError("");
       })
       .catch((e) => live && setError(e.message));
     return () => {
       live = false;
     };
-  }, [id, step]);
+  }, [id, step, initialCandidate]);
 
   const current = selected?.run_id === id ? selected : null;
   const original = current?.steps?.find((s) => s.step_id === step);
@@ -93,7 +94,7 @@ export default function Replay({ runs, selected, setSelected, onCompare, onUpdat
   const confirmed = result?.verdict === "confirmed";
   return (
     <>
-      <PageHead title="Test a fix">
+      <PageHead title="Replay & alternatives">
         A diagnosis is a hypothesis. Fix the suspected step and replay the run from there: earlier steps load from their
         checkpoint, unaffected steps are reused, and only what depends on the fix runs again.
       </PageHead>
@@ -114,7 +115,7 @@ export default function Replay({ runs, selected, setSelected, onCompare, onUpdat
                 : "fine"
           }
           flag={(s) => (result ? (s.step_id === result.from_step ? "Fixed" : null) : s.step_id === root?.step ? "Suspect" : null)}
-          legend={result ? ACTION_LEGEND : root ? [["#ff5a3c", "Diagnosed root cause"]] : null}
+          legend={result ? ACTION_LEGEND : root ? [["#ff5a3c", "Leading suspect"]] : null}
           footer={
             result ? (
               <>
@@ -146,7 +147,7 @@ export default function Replay({ runs, selected, setSelected, onCompare, onUpdat
             {mode === "output" && (
               <>
                 {options.length > 0 && (
-                  <Field label="Suggested fixes">
+                <Field label="Suggested alternatives · output interventions">
                     <div className="option-list">
                       {options.map((o, i) => (
                         <button
@@ -187,7 +188,7 @@ export default function Replay({ runs, selected, setSelected, onCompare, onUpdat
             )}
           </Panel>
           <Panel title="3 · Replay">
-            <Field label="How many replays" hint="Several replays show whether the fix works reliably, not by luck.">
+            <Field label="How many replays" hint="Stochastic replays can reveal variability. Offline repeats are deterministic.">
               <Segmented value={k} onChange={setK} options={[[1, "1"], [3, "3"], [5, "5"], [10, "10"]]} />
             </Field>
             <span className="label">Step {step} output today</span>
@@ -213,7 +214,7 @@ export default function Replay({ runs, selected, setSelected, onCompare, onUpdat
             </div>
             <div className={"note section-gap " + (confirmed ? "good" : result.passed ? "warn" : "bad")}>
               <span>
-                <strong>{confirmed ? "Diagnosis confirmed." : result.passed ? "Inconclusive." : "This fix did not work."}</strong>{" "}
+                <strong>{confirmed ? "Repair supported by replay." : result.passed ? "Inconclusive." : "This alternative did not work."}</strong>{" "}
                 {result.verdict_text}
               </span>
             </div>
@@ -236,8 +237,7 @@ export default function Replay({ runs, selected, setSelected, onCompare, onUpdat
               </div>
             </div>
             <p className="small muted">
-              95% confidence range for the success rate: {percent(result.ci95?.[0], 0)} – {percent(result.ci95?.[1], 0)}.{" "}
-              {result.deterministic ? "The offline agent is deterministic, so repeats are identical." : "Each replay is an independent LLM sample."}
+              {result.deterministic ? "Deterministic execution: repeated variants do not provide independent reliability evidence." : <>Reported 95% interval: {percent(result.ci95?.[0], 0)} – {percent(result.ci95?.[1], 0)}. Interpret it alongside the sampling and cache protocol.</>}
             </p>
           </Panel>
           <Panel title="Before and after">

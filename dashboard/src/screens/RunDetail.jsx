@@ -1,14 +1,35 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, CheckCircle2, GitBranch, Sparkles, Zap } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, CheckCircle2, GitBranch, LoaderCircle, Sparkles, Zap } from "lucide-react";
 import { api, diagnosisOf, familyLabels, money, nodeLabel, percent, short } from "../api";
 import { Json, Panel, StatusBadge, Tape } from "../ui";
 
 const LEGEND = [
-  ["#ff5a3c", "Root cause"],
+  ["#ff5a3c", "Leading suspect"],
   ["#f0a020", "Affected downstream"],
   ["#2f9e64", "Not affected"],
 ];
 const MODEL_NAMES = { m1: "Transformer", m2: "LightGBM", m3: "Anomaly detector" };
+
+function Alternatives({ runId, step, onReplay }) {
+  const [options, setOptions] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => { setOptions(null); setError(""); }, [runId, step]);
+  const load = async () => {
+    setBusy(true); setError("");
+    try { setOptions((await api(`/runs/${runId}/suggest-fix?step=${step}`)).options || []); }
+    catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  };
+  return <Panel title="Alternative paths" aside="Suggestions · not yet tested" className="alternatives-panel">
+    <p className="alternative-intro">Try a different output at step {step}, then verify what changes downstream. The original run stays intact.</p>
+    {options === null && <button className="btn primary" onClick={load} disabled={busy}>{busy ? <LoaderCircle size={15} className="spin" /> : <GitBranch size={15} />}{busy ? "Finding alternatives…" : "Find alternatives"}</button>}
+    {options?.map((option, i) => <article className="alternative-card" key={option.id + i}><span className="alternative-index">{String(i + 1).padStart(2, "0")}</span><div><h3>{option.label}</h3><p>{option.source || option.source_run_id || "Candidate output intervention"}</p><span className="candidate-label">Suggested · output intervention</span></div><button className="icon-button" aria-label={`Test alternative: ${option.label}`} title="Open this candidate in replay" onClick={() => onReplay({ step, patch: option.patch })}><ArrowUpRight size={17} /></button></article>)}
+    {options?.length === 0 && <div className="note">No automatic alternatives found. You can still edit the output or an LLM instruction in replay.</div>}
+    {options !== null && <button className="text-link" onClick={() => onReplay()}>Create a custom alternative <ArrowUpRight size={14} /></button>}
+    {error && <p role="alert" className="tone-root small">{error} <button className="text-link" onClick={load}>Retry</button></p>}
+  </Panel>;
+}
 
 function Explain({ runId }) {
   const [text, setText] = useState(null);
@@ -109,8 +130,8 @@ export default function RunDetail({ run, onBack, onReplay, onBreak }) {
         <div className="actions">
           <StatusBadge status={run.status} />
           {failed ? (
-            <button className="btn primary" onClick={onReplay}>
-              <GitBranch size={16} /> Test a fix
+            <button className="btn primary" onClick={() => onReplay()}>
+              <GitBranch size={16} /> Explore alternatives
             </button>
           ) : (
             <button className="btn primary" onClick={onBreak}>
@@ -125,7 +146,7 @@ export default function RunDetail({ run, onBack, onReplay, onBreak }) {
           {failed && root ? (
             <>
               <h2>
-                <em>Step {root.step} · {nodeLabel(root.node)}</em> caused this failure.
+                <em>Step {root.step} · {nodeLabel(root.node)}</em> is the leading suspect.
               </h2>
               <p>{(d.evidence?.summary || "").replace(/^[\w ]+: /, "")}</p>
             </>
@@ -143,11 +164,11 @@ export default function RunDetail({ run, onBack, onReplay, onBreak }) {
           <div className="gauges">
             <div className="gauge">
               <div className="stat-value tone-root">{percent(root.confidence, 0)}</div>
-              <div className="stat-note">blame on this step</div>
+              <div className="stat-note">step ranking score</div>
             </div>
             <div className="gauge">
               <div className="stat-value">{percent(d.p_fail, 0)}</div>
-              <div className="stat-note">chance the run failed</div>
+              <div className="stat-note">{d.method === "ensemble" ? "failure score" : "uncalibrated failure score"}</div>
             </div>
           </div>
         )}
@@ -159,13 +180,12 @@ export default function RunDetail({ run, onBack, onReplay, onBreak }) {
         selected={selected}
         onSelect={(s) => setSelected(s.step_id)}
         role={(s) => (!failed ? "fine" : s.step_id === root?.step ? "root" : flow.includes(s.step_id) ? "affected" : "fine")}
-        flag={(s) => (failed && s.step_id === root?.step ? "Root cause" : null)}
+        flag={(s) => (failed && s.step_id === root?.step ? "Suspect" : null)}
         legend={failed ? LEGEND : [["#2f9e64", "Step completed"]]}
         footer={
           failed && flow.length > 1 ? (
             <>
-              The bad output of step <strong>{root.step}</strong> flowed into steps <strong>{flow.slice(1).join(", ")}</strong>. They look wrong too,
-              but they are symptoms. Click any step to inspect it.
+              Step <strong>{root.step}</strong> feeds steps <strong>{flow.slice(1).join(", ")}</strong>. Inspect the recorded outputs to investigate how the issue propagated.
             </>
           ) : (
             "Click any step to inspect its input, output and prompt."
@@ -180,6 +200,7 @@ export default function RunDetail({ run, onBack, onReplay, onBreak }) {
       )}
       {failed && root && <div className="grid-main section-gap">
         <div className="stack">
+          <Alternatives runId={run.run_id} step={root.step} onReplay={onReplay} />
           {failed && root && (
             <Panel title={`Why step ${root.step}`} aside={d.method === "ensemble" ? "reasons from SHAP values" : "rule-based reasons"}>
               <ul className="reasons">
@@ -224,21 +245,20 @@ export default function RunDetail({ run, onBack, onReplay, onBreak }) {
             </Panel>
           )}
           {failed && root && (
-            <Panel title="Proof">
+            <Panel title="Replay evidence">
               {cf ? (
                 <div className={"note " + (cf.verdict === "confirmed" ? "good" : "warn")}>
                   <CheckCircle2 size={18} />
                   <span>
                     Replaying from step {cf.from_step} with a fix: <strong>{cf.passed} of {cf.k}</strong> runs passed. Diagnosis{" "}
-                    <strong>{cf.verdict}</strong>.
+                    <strong>{cf.verdict}</strong> by this experiment.
                   </span>
                 </div>
               ) : (
                 <div className="note">
                   <GitBranch size={18} />
                   <span>
-                    Not tested yet. Use <strong>Test a fix</strong> to replay from step {root.step} with a corrected output. If the
-                    answer becomes correct, the diagnosis is proven.
+                    Not tested yet. Explore an alternative from step {root.step}. A passing result supports the repair hypothesis; it does not establish a unique cause.
                   </span>
                 </div>
               )}

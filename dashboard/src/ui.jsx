@@ -37,7 +37,7 @@ export function Panel({ title, aside, children, className = "", bodyClass = "pan
 
 export function Stat({ label, value, unit, note, tone = "" }) {
   return (
-    <div className="stat">
+    <div className={"stat " + tone}>
       <span className="label">{label}</span>
       <div className={"stat-value " + tone}>
         {value}
@@ -75,13 +75,12 @@ export function Field({ label, hint, children }) {
 
 export function Segmented({ options, value, onChange }) {
   return (
-    <div className="segmented" role="radiogroup">
+    <div className="segmented" role="group" aria-label="Choose an option">
       {options.map(([id, label, disabled, title]) => (
         <button
           key={id}
           type="button"
-          role="radio"
-          aria-checked={value === id}
+          aria-pressed={value === id}
           className={value === id ? "active" : ""}
           disabled={disabled}
           title={title}
@@ -167,7 +166,7 @@ export function Tape({ title, steps, role, flag, selected, onSelect, legend, foo
 
 export function MiniTape({ count = 10, suspect, status }) {
   return (
-    <span className={"mini-tape " + (status || "").toLowerCase()} aria-label={suspect ? "Root cause at step " + suspect : "All steps"}>
+    <span className={"mini-tape " + (status || "").toLowerCase()} aria-label={suspect ? "Leading suspect at step " + suspect : "Recorded steps"}>
       {Array.from({ length: count }).map((_, i) => (
         <i
           key={i}
