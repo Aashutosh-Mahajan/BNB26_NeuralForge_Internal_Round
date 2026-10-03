@@ -1,0 +1,18 @@
+services:
+  blackbox:
+    build: .
+    ports:
+      - "127.0.0.1:8010:8000"
+    environment:
+      BLACKBOX_DB: /app/data/traces.db
+      BLACKBOX_METRICS: /app/data/metrics.json
+      BLACKBOX_SEED_DEMO: "true"
+    volumes:
+      - blackbox-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+volumes:
+  blackbox-data:

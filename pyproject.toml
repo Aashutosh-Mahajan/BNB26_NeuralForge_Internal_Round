@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blackbox-agent-recorder"
+version = "0.1.0"
+description = "A local flight recorder, fault investigator, and checkpoint replay workbench for sandbox agents."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115,<1.0",
+    "uvicorn[standard]>=0.30,<1.0",
+    "numpy>=1.26,<3.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9", "httpx>=0.27,<1"]
+ml = ["torch>=2.3", "lightgbm>=4.3", "scikit-learn>=1.5", "sentence-transformers>=3", "shap>=0.46"]
+
+[tool.setuptools.packages.find]
+include = ["blackbox*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

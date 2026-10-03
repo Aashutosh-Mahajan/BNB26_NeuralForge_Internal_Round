@@ -1,0 +1,352 @@
+"""FastAPI transport for the local sandbox recorder and replay engine."""
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import os
+import uuid
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Literal
+
+from fastapi import APIRouter, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from blackbox.agent.tasks import parameters
+from blackbox.agent.tools import parse_time
+from blackbox.diagnosis import diagnose
+from blackbox.engine import Engine, FAULT_CATALOG
+from blackbox.explain import compare_runs
+from blackbox.storage import Store
+from .events import EventLog
+
+logger = logging.getLogger(__name__)
+
+
+class RequestModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class RunRequest(RequestModel):
+    prompt: str = Field(min_length=3, max_length=4000)
+    task_family: Literal["finance", "sql", "doc_qa", "math"] = "finance"
+    params: dict[str, Any] | None = None
+
+    @field_validator("prompt")
+    @classmethod
+    def nonempty_prompt(cls, value: str) -> str:
+        value = value.strip()
+        if len(value) < 3:
+            raise ValueError("Provide a task of at least three characters.")
+        return value
+
+
+class InjectionRequest(RequestModel):
+    step_id: int = Field(ge=1, strict=True)
+    fault_type: str = Field(min_length=1)
+
+
+class OutputPatch(RequestModel):
+    output: Any
+
+    @field_validator("output")
+    @classmethod
+    def finite_json(cls, value: Any) -> Any:
+        try:
+            json.dumps(value, allow_nan=False)
+        except (ValueError, TypeError) as error:
+            raise ValueError("Patch output must be finite JSON.") from error
+        return value
+
+
+class ReplayRequest(RequestModel):
+    from_step: int = Field(ge=1, strict=True)
+    patch: OutputPatch
+    k: int = Field(default=5, ge=1, le=10, strict=True)
+
+
+def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = None,
+               metrics_path: str | Path | None = None) -> FastAPI:
+    """Create isolated applications for the server, scripts, or integration tests."""
+    database = Path(db_path or os.environ.get("BLACKBOX_DB", "data/traces.db"))
+    metrics_file = Path(metrics_path or os.environ.get("BLACKBOX_METRICS", "data/metrics.json"))
+    should_seed = seed_demo if seed_demo is not None else os.environ.get("BLACKBOX_SEED_DEMO", "true").lower() == "true"
+    background_tasks: set[asyncio.Task] = set()
+
+    @asynccontextmanager
+    async def lifespan(application: FastAPI):
+        database.parent.mkdir(parents=True, exist_ok=True)
+        application.state.store = Store(database)
+        application.state.engine = Engine(application.state.store)
+        application.state.events = EventLog(database)
+        # Interrupted processes leave explicit errors instead of streams that wait forever.
+        for run in application.state.store.list_runs():
+            if run.get("status") in {"QUEUED", "RUNNING"}:
+                run.update(status="ERROR", success=False, error="Execution interrupted by a server restart.")
+                application.state.store.save_run(run)
+                application.state.events.append(run["run_id"], {"type": "error", "status": "ERROR", "message": run["error"]})
+        if should_seed and not application.state.store.list_runs():
+            await asyncio.to_thread(seed_examples)
+        yield
+        if background_tasks:
+            await asyncio.gather(*background_tasks, return_exceptions=True)
+        application.state.store.close()
+
+    application = FastAPI(title="Black Box", version="0.1.0", lifespan=lifespan, servers=[{"url": "/api"}],
+                          description="Deterministic sandbox flight recorder and evidence-based diagnosis baseline.")
+    origins = os.environ.get("BLACKBOX_CORS_ORIGINS", "http://localhost:5174,http://127.0.0.1:5174").split(",")
+    application.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
+    router = APIRouter()
+
+    def get_run(run_id: str) -> dict[str, Any]:
+        try:
+            return application.state.store.get_run(run_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="Run not found.") from error
+
+    def successes() -> list[dict[str, Any]]:
+        return [run for run in application.state.store.list_runs() if run.get("success") is True]
+
+    def detailed(run: dict[str, Any]) -> dict[str, Any]:
+        if run.get("status") in {"QUEUED", "RUNNING", "ERROR"}:
+            return {**run, "diagnosis": None}
+        diagnosis = diagnose(run, successful_runs=successes())
+        return {**run, **diagnosis, "diagnosis": diagnosis}
+
+    def step_event(step: dict[str, Any]) -> dict[str, Any]:
+        return {"type": "step", "step": step, "step_id": step["step_id"],
+                "node": step.get("node_name"), "output": step.get("output"),
+                "latency_ms": step.get("latency_ms", 0)}
+
+    def history(run: dict[str, Any]) -> None:
+        events = application.state.events
+        if not events.after(run["run_id"]):
+            for step in run.get("steps", []):
+                events.append(run["run_id"], step_event(step))
+            events.append(run["run_id"], {"type": "complete", "status": run["status"], "run": run})
+
+    def seed_examples() -> None:
+        examples = {
+            "finance": "Convert INR 50,000 to USD and compute EMI for 12 months at 9%.",
+            "sql": "Find the total sales in the north region.",
+            "doc_qa": "How many days do I have to request a refund?",
+            "math": "Buy 8 items at $12 each with a 10% discount. What is the total?",
+        }
+        finance_id = None
+        for family, prompt in examples.items():
+            run = application.state.engine.run(prompt, task_family=family)
+            history(run)
+            if family == "finance":
+                finance_id = run["run_id"]
+        history(application.state.engine.inject(finance_id, 3, "stale_data"))
+
+    def metrics() -> dict[str, Any]:
+        unavailable = {"status": "not_available", "top1": None, "top3": None, "mrr": None,
+                       "within_one": None, "unseen_top1": None, "auroc": None,
+                       "baselines": {}, "splits": {}, "message": "No measured evaluation artifact. Run python -m blackbox.evaluation."}
+        if not metrics_file.is_file():
+            return unavailable
+        try:
+            payload = json.loads(metrics_file.read_text(encoding="utf-8-sig"))
+            if not isinstance(payload, dict):
+                raise ValueError("metrics.json must contain an object")
+            # Preserve the evaluator's provenance and measured metrics; never substitute PRD targets.
+            return {"status": "available", **payload}
+        except (OSError, ValueError) as error:
+            logger.warning("Unable to load evaluation artifact: %s", error)
+            return {**unavailable, "message": "The evaluation artifact cannot be read; regenerate metrics.json."}
+
+    async def execute(run_id: str, request: RunRequest) -> None:
+        try:
+            callback = lambda step: application.state.events.append(run_id, step_event(step))
+            run = await asyncio.to_thread(application.state.engine.run, request.prompt,
+                                          task_family=request.task_family, params=request.params,
+                                          on_step=callback, run_id=run_id)
+            application.state.events.append(run_id, {"type": "complete", "status": run["status"], "run": run})
+        except Exception:
+            logger.exception("Sandbox run %s failed during execution", run_id)
+            run = get_run(run_id)
+            run.update(status="ERROR", success=False, error="Execution failed; inspect the server log for details.")
+            application.state.store.save_run(run)
+            application.state.events.append(run_id, {"type": "error", "status": "ERROR", "message": run["error"]})
+
+    @router.get("/health")
+    def health():
+        return {"status": "ok", "mode": "deterministic_sandbox", "version": "0.1.0"}
+
+    @router.get("/faults")
+    def faults():
+        return {"faults": FAULT_CATALOG}
+
+    @router.post("/runs", status_code=202)
+    async def start_run(request: RunRequest):
+        try:
+            parameter_values = dict(request.params or {})
+            if "frozen_at" in parameter_values:
+                parse_time(parameter_values.pop("frozen_at"))
+            parameters(request.prompt, request.task_family, parameter_values)
+            json.dumps(parameter_values, allow_nan=False)
+        except (ValueError, TypeError, KeyError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        run_id = uuid.uuid4().hex
+        application.state.store.save_run({"run_id": run_id, "prompt": request.prompt,
+            "task_family": request.task_family, "status": "QUEUED", "steps": [],
+            "created_at": datetime.now(timezone.utc).isoformat(), "success": None,
+            "total_tokens": 0, "total_time": 0})
+        task = asyncio.create_task(execute(run_id, request))
+        background_tasks.add(task)
+        task.add_done_callback(background_tasks.discard)
+        return {"run_id": run_id, "status": "QUEUED"}
+
+    @router.get("/runs")
+    def list_runs(limit: int = Query(default=100, ge=1, le=1000), status: str | None = None):
+        all_runs = application.state.store.list_runs(limit=10000)
+        selected = [run for run in all_runs if status is None or run.get("status") == status.upper()]
+        normal = [run for run in all_runs if run.get("success") is True]
+        summaries = []
+        for run in selected[:limit]:
+            diagnosis = diagnose(run, successful_runs=normal) if run.get("status") in {"PASSED", "FAILED"} else {}
+            root = diagnosis.get("root_cause") or {}
+            summaries.append({key: value for key, value in {**run, **diagnosis,
+                "step_count": len(run.get("steps", [])), "suspect_step": root.get("step"),
+                "blame": root.get("confidence")}.items() if key not in {"steps", "checkpoints"}})
+        return {"runs": summaries, "total": len(selected)}
+
+    @router.get("/runs/{run_id}")
+    def read_run(run_id: str):
+        return detailed(get_run(run_id))
+
+    @router.websocket("/runs/{run_id}/stream")
+    async def stream(websocket: WebSocket, run_id: str, after: int = 0):
+        await websocket.accept()
+        try:
+            try:
+                run = get_run(run_id)
+            except HTTPException:
+                await websocket.send_json({"type": "error", "message": "Run not found."})
+                await websocket.close(code=1008)
+                return
+            if run.get("status") in {"PASSED", "FAILED"}:
+                history(run)
+            cursor = max(0, after)
+            while True:
+                events = application.state.events.after(run_id, cursor)
+                for event in events:
+                    await websocket.send_json(event)
+                    cursor = event["event_id"]
+                    if event["type"] in {"complete", "error"}:
+                        await websocket.close(code=1000)
+                        return
+                if not events and get_run(run_id).get("status") in {"PASSED", "FAILED", "ERROR"}:
+                    # Reconnected clients already beyond the terminal event receive an explicit terminator.
+                    latest = application.state.events.after(run_id)
+                    if latest and cursor >= latest[-1]["event_id"] and latest[-1]["type"] in {"complete", "error"}:
+                        await websocket.close(code=1000)
+                        return
+                await asyncio.sleep(0.05)
+        except WebSocketDisconnect:
+            return
+
+    def ready(run_id: str) -> dict[str, Any]:
+        run = get_run(run_id)
+        if run.get("status") not in {"PASSED", "FAILED"}:
+            raise HTTPException(status_code=409, detail="Wait for the run to finish first.")
+        return run
+
+    @router.post("/runs/{run_id}/inject")
+    async def inject(run_id: str, request: InjectionRequest):
+        ready(run_id)
+        try:
+            run = await asyncio.to_thread(application.state.engine.inject, run_id, request.step_id, request.fault_type)
+        except (KeyError, ValueError, TypeError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        history(run)
+        return {**detailed(run), "new_run_id": run["run_id"]}
+
+    @router.post("/runs/{run_id}/replay")
+    async def replay(run_id: str, request: ReplayRequest):
+        ready(run_id)
+        try:
+            result = await asyncio.to_thread(application.state.engine.replay, run_id,
+                request.from_step, request.patch.model_dump(), request.k)
+        except (KeyError, ValueError, TypeError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        for replay_id in result.get("replay_run_ids", [result.get("new_run_id")]):
+            if replay_id:
+                history(get_run(replay_id))
+        return result
+
+    @router.get("/runs/{run_id}/suggest-fix")
+    def suggest_fix(run_id: str, step: int = Query(ge=1)):
+        ready(run_id)
+        try:
+            return application.state.engine.suggest_fix(run_id, step)
+        except (KeyError, ValueError, TypeError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @router.get("/compare")
+    def compare(a: str, b: str):
+        return compare_runs(ready(a), ready(b))
+
+    @router.get("/stats")
+    def stats():
+        runs = application.state.store.list_runs(limit=10000)
+        passed = [run for run in runs if run.get("status") == "PASSED"]
+        failed = [run for run in runs if run.get("status") == "FAILED"]
+        components: dict[str, int] = {}
+        latencies = []
+        for run in failed:
+            diagnosis = diagnose(run, successful_runs=passed)
+            root = diagnosis.get("root_cause") or {}
+            component = root.get("node", "unknown")
+            components[component] = components.get(component, 0) + 1
+            latency = diagnosis.get("latency_ms", diagnosis.get("diagnosis_latency_ms"))
+            if isinstance(latency, (float, int)):
+                latencies.append(latency)
+        return {"totals": {"runs": len(runs), "passed": len(passed), "failed": len(failed),
+                    "running": sum(run.get("status") in {"QUEUED", "RUNNING"} for run in runs)},
+                "by_component": [{"component": key, "count": value} for key, value in sorted(components.items(), key=lambda pair: -pair[1])],
+                "diagnosis_latency_ms": sum(latencies) / len(latencies) if latencies else None,
+                "top1": metrics().get("top1"), "mode": "deterministic_sandbox", "total_tokens": 0}
+
+    @router.get("/eval")
+    def evaluation():
+        return metrics()
+
+    @application.get("/api/docs", include_in_schema=False)
+    def api_documentation():
+        return get_swagger_ui_html(openapi_url="/api/openapi.json", title="Black Box API")
+
+    @application.get("/api/openapi.json", include_in_schema=False)
+    def api_schema():
+        return application.openapi()
+
+    application.include_router(router)
+    application.include_router(router, prefix="/api", include_in_schema=False)
+    dashboard = Path(__file__).resolve().parents[2] / "dashboard" / "dist"
+    # The source checkout and Docker image both keep dashboard beside blackbox.
+    if not dashboard.exists():
+        dashboard = Path(__file__).resolve().parents[2].parent / "dashboard" / "dist"
+    if dashboard.is_dir():
+        if (dashboard / "assets").is_dir():
+            application.mount("/assets", StaticFiles(directory=dashboard / "assets"), name="assets")
+
+        @application.get("/", include_in_schema=False)
+        def dashboard_home():
+            return FileResponse(dashboard / "index.html")
+
+        @application.get("/{path:path}", include_in_schema=False)
+        def dashboard_fallback(path: str):
+            if path == "api" or path.startswith("api/"):
+                raise HTTPException(status_code=404, detail="API endpoint not found.")
+            return FileResponse(dashboard / "index.html")
+    return application
+
+
+app = create_app()
