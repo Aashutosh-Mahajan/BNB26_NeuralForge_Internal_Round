@@ -55,6 +55,8 @@ Copy-Item .env.example .env     # LLM_PROVIDER=sandbox runs fully offline
 
 Dashboard: http://localhost:8010 (after `cd dashboard; npm ci; npm run build`) or `npm run dev` on :5174.
 
+The dashboard opens on the product homepage. Choose **Open workspace** for the execution overview, or **Record a run** to begin recording. Workspace sections have hash URLs (for example `/#runs`, `/#replay`, and `/#evaluation`), and individual investigations can be opened directly with `/#run/<run_id>`. Failed-run investigations include an **Alternative paths** panel; choose a suggestion to carry its output patch into replay. Suggestions are labeled as untested output interventions until replay checks their outcome.
+
 ## Pipeline
 
 ```powershell
