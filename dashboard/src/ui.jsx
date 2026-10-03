@@ -128,7 +128,7 @@ export function Tape({ title, steps, role, flag, selected, onSelect, legend, foo
           </div>
         )}
       </div>
-      <div className="tape-track" style={{ "--cols": Math.max(1, steps.length + placeholders) }}>
+      <div className="tape-track" style={{ "--cols": Math.min(10, Math.max(1, steps.length + placeholders)) }}>
         {steps.map((s) => {
           const kind = role ? role(s) : "fine";
           const tokens = (s.tokens_in || 0) + (s.tokens_out || 0);
@@ -189,6 +189,79 @@ export function HBars({ rows }) {
           </div>
           <span className="val">{r.value == null ? "—" : (r.value * 100).toFixed(1) + "%"}</span>
         </div>
+      ))}
+    </div>
+  );
+}
+
+/* Dependency graph: columns by dependency depth, real parent → child edges. */
+const ROLE_FILL = {
+  root: ["#fdebe7", "#d9381e"],
+  affected: ["#fff4e0", "#c27400"],
+  fine: ["#e5f4ec", "#1f7a4d"],
+  neutral: ["#f6f7f9", "#9aa5b8"],
+};
+export function DepGraph({ steps, role, selected, onSelect }) {
+  const depth = {};
+  for (const s of steps) depth[s.step_id] = Math.max(0, ...(s.parent_step_ids || []).map((p) => (depth[p] ?? 0) + 1));
+  const columns = {};
+  for (const s of steps) (columns[depth[s.step_id]] ||= []).push(s);
+  const W = 168, H = 64, BW = 140, BH = 46;
+  const pos = {};
+  Object.entries(columns).forEach(([d, items]) => items.forEach((s, i) => (pos[s.step_id] = { x: Number(d) * W + 10, y: i * H + 10 })));
+  const width = (Math.max(...Object.keys(columns).map(Number)) + 1) * W;
+  const height = Math.max(...Object.values(columns).map((c) => c.length)) * H + 10;
+  return (
+    <svg className="depgraph" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Step dependency graph">
+      {steps.flatMap((s) =>
+        (s.parent_step_ids || []).map((p) => {
+          const a = pos[p], b = pos[s.step_id];
+          if (!a || !b) return null;
+          const r = role(s);
+          const hot = role(steps.find((x) => x.step_id === p)) !== "fine" && r !== "fine";
+          return (
+            <path
+              key={p + "-" + s.step_id}
+              d={`M${a.x + BW},${a.y + BH / 2} C${a.x + BW + 24},${a.y + BH / 2} ${b.x - 24},${b.y + BH / 2} ${b.x},${b.y + BH / 2}`}
+              fill="none"
+              stroke={hot ? "#e0892b" : "#c3cad5"}
+              strokeWidth={hot ? 2.5 : 1.5}
+            />
+          );
+        }),
+      )}
+      {steps.map((s) => {
+        const [fill, stroke] = ROLE_FILL[role(s)] || ROLE_FILL.neutral;
+        const p = pos[s.step_id];
+        return (
+          <g key={s.step_id} transform={`translate(${p.x},${p.y})`} onClick={() => onSelect?.(s)} style={{ cursor: "pointer" }}>
+            <rect width={BW} height={BH} rx="6" fill={fill} stroke={stroke} strokeWidth={selected === s.step_id ? 3 : 1.5} />
+            <text x="10" y="18" fontSize="11" fontWeight="700" fill="#3d4553">STEP {String(s.step_id).padStart(2, "0")}</text>
+            <text x="10" y="35" fontSize="14" fontWeight="600" fill="#121722">{nodeLabel(s.node_name).slice(0, 17)}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+const CAPS = [
+  ["record", "Record"],
+  ["diagnose", "Diagnose"],
+  ["checkpoint", "Checkpoint"],
+  ["fork", "Fork"],
+  ["resume", "Resume"],
+  ["selective_reuse", "Reuse unaffected steps"],
+];
+export const BUILTIN_CAPS = { record: true, diagnose: true, checkpoint: true, fork: true, resume: true, selective_reuse: true };
+export function Capabilities({ caps, adapter }) {
+  return (
+    <div className="caps" aria-label={"What Black Box can do for " + adapter}>
+      <span className="caps-title">{adapter}</span>
+      {CAPS.map(([key, label]) => (
+        <span key={key} className={"cap " + (caps?.[key] ? "yes" : "no")} title={caps?.[key] ? "Supported" : "Not supported for this adapter"}>
+          {caps?.[key] ? "✓" : "✕"} {label}
+        </span>
       ))}
     </div>
   );

@@ -1,0 +1,33 @@
+{
+  "created_at": "2026-10-03T15:36:29.579967+00:00",
+  "dataset": "data\\dataset_sandbox.db",
+  "provider": "sandbox",
+  "model": "rule-based-v2-noise0.07",
+  "noise": 0.07,
+  "seed": 42,
+  "tasks": 800,
+  "runs": 2452,
+  "steps": 24520,
+  "clean": 621,
+  "natural_failures": 179,
+  "injected": 1652,
+  "counterfactual_labelled": 170,
+  "counterfactual_attempted": 179,
+  "labeler_agreement_with_simulation": 1.0,
+  "errors": 0,
+  "error_examples": [],
+  "counts": {
+    "train/injected": 1060,
+    "unseen_fault/injected": 95,
+    "test/injected": 239,
+    "validation/injected": 258,
+    "train/clean": 425,
+    "train/natural": 119,
+    "test/natural": 33,
+    "test/clean": 95,
+    "validation/natural": 27,
+    "validation/clean": 101
+  },
+  "billed_cost_usd": 0.0,
+  "elapsed_s": 65.3
+}

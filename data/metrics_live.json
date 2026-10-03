@@ -1,0 +1,102 @@
+{
+  "generated_at": "2026-10-03T19:41:18.896616+00:00",
+  "cost_usd": 0.0,
+  "clean_runs": 96,
+  "false_interruption_rate": 0.0,
+  "planted_failures": 88,
+  "recovered_rate": 0.9659090909090909,
+  "escalated": 0,
+  "detection_delay_steps": 0,
+  "per_fault": {
+    "dropped_constraint": {
+      "planted": 11,
+      "failed_without": 11,
+      "passed_with": 11,
+      "escalated": 0,
+      "held_out": false,
+      "recovered_rate": 1.0
+    },
+    "empty_result": {
+      "planted": 9,
+      "failed_without": 9,
+      "passed_with": 9,
+      "escalated": 0,
+      "held_out": false,
+      "recovered_rate": 1.0
+    },
+    "hallucinated_fact": {
+      "planted": 9,
+      "failed_without": 9,
+      "passed_with": 9,
+      "escalated": 0,
+      "held_out": false,
+      "recovered_rate": 1.0
+    },
+    "loop_repetition": {
+      "planted": 8,
+      "failed_without": 8,
+      "passed_with": 8,
+      "escalated": 0,
+      "held_out": true,
+      "recovered_rate": 1.0
+    },
+    "memory_overwrite": {
+      "planted": 5,
+      "failed_without": 5,
+      "passed_with": 5,
+      "escalated": 0,
+      "held_out": true,
+      "recovered_rate": 1.0
+    },
+    "premature_final": {
+      "planted": 7,
+      "failed_without": 7,
+      "passed_with": 7,
+      "escalated": 0,
+      "held_out": true,
+      "recovered_rate": 1.0
+    },
+    "retrieval_poisoning": {
+      "planted": 10,
+      "failed_without": 10,
+      "passed_with": 10,
+      "escalated": 0,
+      "held_out": false,
+      "recovered_rate": 1.0
+    },
+    "tool_timeout": {
+      "planted": 14,
+      "failed_without": 14,
+      "passed_with": 14,
+      "escalated": 0,
+      "held_out": false,
+      "recovered_rate": 1.0
+    },
+    "wrong_arguments": {
+      "planted": 7,
+      "failed_without": 7,
+      "passed_with": 7,
+      "escalated": 0,
+      "held_out": false,
+      "recovered_rate": 1.0
+    },
+    "wrong_tool_choice": {
+      "planted": 4,
+      "failed_without": 4,
+      "passed_with": 4,
+      "escalated": 0,
+      "held_out": false,
+      "recovered_rate": 1.0
+    },
+    "wrong_tool_value": {
+      "planted": 4,
+      "failed_without": 4,
+      "passed_with": 1,
+      "escalated": 0,
+      "held_out": false,
+      "recovered_rate": 0.25
+    }
+  },
+  "method": "rule-based prefix validators + catalogue repairs (no recorded-output substitution), max 2 attempts",
+  "limitation": "Validators are hand-written; a learned prefix detector was not trained. Sandbox agent only."
+}

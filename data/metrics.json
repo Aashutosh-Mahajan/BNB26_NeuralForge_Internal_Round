@@ -1,0 +1,2806 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-03T17:11:33.584763+00:00",
+  "status": "measured",
+  "method": "ensemble",
+  "model_status": "trained",
+  "model_version": "c42ff0fbf179",
+  "weights": {
+    "m1": 0.6,
+    "m2": 0.3,
+    "m3": 0.1
+  },
+  "top1": 1.0,
+  "top3": 1.0,
+  "mrr": 1.0,
+  "within_one": 1.0,
+  "auroc": 0.9996845885093167,
+  "f1": 0.9877300613496932,
+  "unseen_top1": 0.921875,
+  "unseen_top3": 1.0,
+  "natural_top1": 1.0,
+  "cross_provider_top1": 0.9612842304060434,
+  "llm_judge_top1": 0.86,
+  "llm_judge_model": "openai:gpt-6-luna",
+  "llm_improvement_ratio": 1.1627906976744187,
+  "baselines": {
+    "random": {
+      "count": 322,
+      "top1": 0.10248447204968944,
+      "top3": 0.2888198757763975,
+      "mrr": 0.2874815143448684,
+      "within_one": 0.2795031055900621
+    },
+    "last_step": {
+      "count": 322,
+      "top1": 0.0,
+      "top3": 0.2453416149068323,
+      "mrr": 0.20792541654342894,
+      "within_one": 0.06832298136645963
+    },
+    "first_tool_error": {
+      "count": 322,
+      "top1": 0.14906832298136646,
+      "top3": 0.34782608695652173,
+      "mrr": 0.32140885339643105,
+      "within_one": 0.37267080745341613
+    },
+    "heuristic_rules": {
+      "count": 322,
+      "top1": 0.6118012422360248,
+      "top3": 0.8074534161490683,
+      "mrr": 0.7403985507246377,
+      "within_one": 0.7018633540372671
+    },
+    "llm_all_at_once": {
+      "count": 100,
+      "top1": 0.86,
+      "top3": 0.87,
+      "mrr": 0.8825674603174601,
+      "within_one": 0.93,
+      "subset": true
+    },
+    "llm_step_by_step": {
+      "count": 100,
+      "top1": 0.72,
+      "top3": 0.74,
+      "mrr": 0.7667857142857142,
+      "within_one": 0.8,
+      "subset": true
+    }
+  },
+  "models": {
+    "m1": {
+      "count": 322,
+      "top1": 0.9968944099378882,
+      "top3": 0.9968944099378882,
+      "mrr": 0.9976708074534162,
+      "within_one": 0.9968944099378882
+    },
+    "m2": {
+      "count": 322,
+      "top1": 0.9968944099378882,
+      "top3": 1.0,
+      "mrr": 0.9984472049689441,
+      "within_one": 0.9968944099378882
+    },
+    "m3": {
+      "count": 322,
+      "top1": 0.6739130434782609,
+      "top3": 0.8540372670807453,
+      "mrr": 0.7816449768313122,
+      "within_one": 0.8757763975155279
+    },
+    "ensemble": {
+      "count": 322,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    }
+  },
+  "splits": {
+    "validation": {
+      "count": 325,
+      "top1": 0.9969230769230769,
+      "top3": 1.0,
+      "mrr": 0.9984615384615385,
+      "within_one": 0.9969230769230769,
+      "total_runs": 453,
+      "failed_runs": 325,
+      "passed_runs": 128,
+      "auroc": 0.9965144230769231,
+      "f1": 0.989247311827957,
+      "models": {
+        "m1": {
+          "count": 325,
+          "top1": 0.9938461538461538,
+          "top3": 0.9969230769230769,
+          "mrr": 0.9961538461538462,
+          "within_one": 0.9969230769230769
+        },
+        "m2": {
+          "count": 325,
+          "top1": 0.9907692307692307,
+          "top3": 1.0,
+          "mrr": 0.994871794871795,
+          "within_one": 0.9907692307692307
+        },
+        "m3": {
+          "count": 325,
+          "top1": 0.6923076923076923,
+          "top3": 0.8830769230769231,
+          "mrr": 0.7935335775335776,
+          "within_one": 0.8830769230769231
+        },
+        "ensemble": {
+          "count": 325,
+          "top1": 0.9969230769230769,
+          "top3": 1.0,
+          "mrr": 0.9984615384615385,
+          "within_one": 0.9969230769230769
+        }
+      },
+      "baselines": {
+        "random": {
+          "count": 325,
+          "top1": 0.1076923076923077,
+          "top3": 0.36,
+          "mrr": 0.31176678876678876,
+          "within_one": 0.32
+        },
+        "last_step": {
+          "count": 325,
+          "top1": 0.0,
+          "top3": 0.27692307692307694,
+          "mrr": 0.22226617826617825,
+          "within_one": 0.11076923076923077
+        },
+        "first_tool_error": {
+          "count": 325,
+          "top1": 0.1753846153846154,
+          "top3": 0.4246153846153846,
+          "mrr": 0.35829181929181925,
+          "within_one": 0.4369230769230769
+        },
+        "heuristic_rules": {
+          "count": 325,
+          "top1": 0.6153846153846154,
+          "top3": 0.8276923076923077,
+          "mrr": 0.7477435897435897,
+          "within_one": 0.6861538461538461
+        }
+      },
+      "per_fault": {
+        "hallucinated_fact": {
+          "count": 36,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "dropped_constraint": {
+          "count": 23,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "wrong_arguments": {
+          "count": 30,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "tool_timeout": {
+          "count": 57,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "wrong_tool_value": {
+          "count": 65,
+          "top1": 0.9846153846153847,
+          "top3": 1.0,
+          "mrr": 0.9923076923076923,
+          "within_one": 0.9846153846153847
+        },
+        "retrieval_poisoning": {
+          "count": 30,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "empty_result": {
+          "count": 63,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "wrong_tool_choice": {
+          "count": 17,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "stale_data": {
+          "count": 4,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        }
+      },
+      "per_family": {
+        "math": {
+          "count": 77,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "sql": {
+          "count": 84,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "finance": {
+          "count": 79,
+          "top1": 0.9873417721518988,
+          "top3": 1.0,
+          "mrr": 0.9936708860759493,
+          "within_one": 0.9873417721518988
+        },
+        "doc_qa": {
+          "count": 85,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        }
+      },
+      "heatmap": [
+        {
+          "fault": "dropped_constraint",
+          "family": "finance",
+          "count": 4,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "dropped_constraint",
+          "family": "math",
+          "count": 13,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "dropped_constraint",
+          "family": "sql",
+          "count": 6,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "empty_result",
+          "family": "doc_qa",
+          "count": 24,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "empty_result",
+          "family": "finance",
+          "count": 19,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "empty_result",
+          "family": "sql",
+          "count": 20,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "hallucinated_fact",
+          "family": "doc_qa",
+          "count": 9,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "hallucinated_fact",
+          "family": "finance",
+          "count": 6,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "hallucinated_fact",
+          "family": "math",
+          "count": 14,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "hallucinated_fact",
+          "family": "sql",
+          "count": 7,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "retrieval_poisoning",
+          "family": "doc_qa",
+          "count": 10,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "retrieval_poisoning",
+          "family": "finance",
+          "count": 4,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "retrieval_poisoning",
+          "family": "math",
+          "count": 11,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "retrieval_poisoning",
+          "family": "sql",
+          "count": 5,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "stale_data",
+          "family": "finance",
+          "count": 4,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "tool_timeout",
+          "family": "doc_qa",
+          "count": 16,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "tool_timeout",
+          "family": "finance",
+          "count": 19,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "tool_timeout",
+          "family": "math",
+          "count": 2,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "tool_timeout",
+          "family": "sql",
+          "count": 20,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_arguments",
+          "family": "doc_qa",
+          "count": 5,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_arguments",
+          "family": "finance",
+          "count": 3,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_arguments",
+          "family": "math",
+          "count": 17,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_arguments",
+          "family": "sql",
+          "count": 5,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_tool_choice",
+          "family": "doc_qa",
+          "count": 8,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_tool_choice",
+          "family": "finance",
+          "count": 4,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_tool_choice",
+          "family": "sql",
+          "count": 5,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_tool_value",
+          "family": "doc_qa",
+          "count": 13,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_tool_value",
+          "family": "finance",
+          "count": 16,
+          "top1": 0.9375,
+          "top3": 1.0,
+          "mrr": 0.96875,
+          "within_one": 0.9375
+        },
+        {
+          "fault": "wrong_tool_value",
+          "family": "math",
+          "count": 20,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_tool_value",
+          "family": "sql",
+          "count": 16,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        }
+      ]
+    },
+    "test": {
+      "count": 322,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0,
+      "total_runs": 450,
+      "failed_runs": 322,
+      "passed_runs": 128,
+      "auroc": 0.9996845885093167,
+      "f1": 0.9877300613496932,
+      "models": {
+        "m1": {
+          "count": 322,
+          "top1": 0.9968944099378882,
+          "top3": 0.9968944099378882,
+          "mrr": 0.9976708074534162,
+          "within_one": 0.9968944099378882
+        },
+        "m2": {
+          "count": 322,
+          "top1": 0.9968944099378882,
+          "top3": 1.0,
+          "mrr": 0.9984472049689441,
+          "within_one": 0.9968944099378882
+        },
+        "m3": {
+          "count": 322,
+          "top1": 0.6739130434782609,
+          "top3": 0.8540372670807453,
+          "mrr": 0.7816449768313122,
+          "within_one": 0.8757763975155279
+        },
+        "ensemble": {
+          "count": 322,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        }
+      },
+      "baselines": {
+        "random": {
+          "count": 322,
+          "top1": 0.10248447204968944,
+          "top3": 0.2888198757763975,
+          "mrr": 0.2874815143448684,
+          "within_one": 0.2795031055900621
+        },
+        "last_step": {
+          "count": 322,
+          "top1": 0.0,
+          "top3": 0.2453416149068323,
+          "mrr": 0.20792541654342894,
+          "within_one": 0.06832298136645963
+        },
+        "first_tool_error": {
+          "count": 322,
+          "top1": 0.14906832298136646,
+          "top3": 0.34782608695652173,
+          "mrr": 0.32140885339643105,
+          "within_one": 0.37267080745341613
+        },
+        "heuristic_rules": {
+          "count": 322,
+          "top1": 0.6118012422360248,
+          "top3": 0.8074534161490683,
+          "mrr": 0.7403985507246377,
+          "within_one": 0.7018633540372671
+        },
+        "llm_all_at_once": {
+          "count": 100,
+          "top1": 0.86,
+          "top3": 0.87,
+          "mrr": 0.8825674603174601,
+          "within_one": 0.93,
+          "subset": true
+        },
+        "llm_step_by_step": {
+          "count": 100,
+          "top1": 0.72,
+          "top3": 0.74,
+          "mrr": 0.7667857142857142,
+          "within_one": 0.8,
+          "subset": true
+        }
+      },
+      "per_fault": {
+        "empty_result": {
+          "count": 57,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "wrong_tool_value": {
+          "count": 81,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "wrong_arguments": {
+          "count": 28,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "tool_timeout": {
+          "count": 48,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "wrong_tool_choice": {
+          "count": 16,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "retrieval_poisoning": {
+          "count": 36,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "dropped_constraint": {
+          "count": 32,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "hallucinated_fact": {
+          "count": 22,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "stale_data": {
+          "count": 2,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        }
+      },
+      "per_family": {
+        "sql": {
+          "count": 80,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "math": {
+          "count": 80,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "finance": {
+          "count": 81,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "doc_qa": {
+          "count": 81,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        }
+      },
+      "heatmap": [
+        {
+          "fault": "dropped_constraint",
+          "family": "doc_qa",
+          "count": 5,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "dropped_constraint",
+          "family": "finance",
+          "count": 6,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "dropped_constraint",
+          "family": "math",
+          "count": 16,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "dropped_constraint",
+          "family": "sql",
+          "count": 5,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "empty_result",
+          "family": "doc_qa",
+          "count": 18,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "empty_result",
+          "family": "finance",
+          "count": 21,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "empty_result",
+          "family": "math",
+          "count": 2,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "empty_result",
+          "family": "sql",
+          "count": 16,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "hallucinated_fact",
+          "family": "doc_qa",
+          "count": 4,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "hallucinated_fact",
+          "family": "finance",
+          "count": 4,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "hallucinated_fact",
+          "family": "math",
+          "count": 9,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "hallucinated_fact",
+          "family": "sql",
+          "count": 5,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "retrieval_poisoning",
+          "family": "doc_qa",
+          "count": 12,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "retrieval_poisoning",
+          "family": "finance",
+          "count": 7,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "retrieval_poisoning",
+          "family": "math",
+          "count": 11,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "retrieval_poisoning",
+          "family": "sql",
+          "count": 6,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "stale_data",
+          "family": "finance",
+          "count": 2,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "tool_timeout",
+          "family": "doc_qa",
+          "count": 16,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "tool_timeout",
+          "family": "finance",
+          "count": 17,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "tool_timeout",
+          "family": "math",
+          "count": 1,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "tool_timeout",
+          "family": "sql",
+          "count": 14,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_arguments",
+          "family": "doc_qa",
+          "count": 4,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_arguments",
+          "family": "finance",
+          "count": 3,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_arguments",
+          "family": "math",
+          "count": 14,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_arguments",
+          "family": "sql",
+          "count": 7,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_tool_choice",
+          "family": "doc_qa",
+          "count": 6,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_tool_choice",
+          "family": "finance",
+          "count": 3,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_tool_choice",
+          "family": "sql",
+          "count": 7,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_tool_value",
+          "family": "doc_qa",
+          "count": 16,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_tool_value",
+          "family": "finance",
+          "count": 18,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_tool_value",
+          "family": "math",
+          "count": 27,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "wrong_tool_value",
+          "family": "sql",
+          "count": 20,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        }
+      ]
+    },
+    "unseen_fault": {
+      "count": 128,
+      "top1": 0.921875,
+      "top3": 1.0,
+      "mrr": 0.9544270833333334,
+      "within_one": 0.9609375,
+      "total_runs": 256,
+      "failed_runs": 128,
+      "passed_runs": 128,
+      "auroc": 1.0,
+      "f1": 0.9696969696969697,
+      "models": {
+        "m1": {
+          "count": 128,
+          "top1": 0.328125,
+          "top3": 0.9296875,
+          "mrr": 0.5631510416666666,
+          "within_one": 0.734375
+        },
+        "m2": {
+          "count": 128,
+          "top1": 0.8203125,
+          "top3": 0.984375,
+          "mrr": 0.90234375,
+          "within_one": 0.8984375
+        },
+        "m3": {
+          "count": 128,
+          "top1": 0.9140625,
+          "top3": 1.0,
+          "mrr": 0.95703125,
+          "within_one": 1.0
+        },
+        "ensemble": {
+          "count": 128,
+          "top1": 0.921875,
+          "top3": 1.0,
+          "mrr": 0.9544270833333334,
+          "within_one": 0.9609375
+        }
+      },
+      "baselines": {
+        "random": {
+          "count": 128,
+          "top1": 0.09375,
+          "top3": 0.2890625,
+          "mrr": 0.28310701884920636,
+          "within_one": 0.3046875
+        },
+        "last_step": {
+          "count": 128,
+          "top1": 0.0,
+          "top3": 0.0,
+          "mrr": 0.1527777777777778,
+          "within_one": 0.0
+        },
+        "first_tool_error": {
+          "count": 128,
+          "top1": 0.0,
+          "top3": 0.0,
+          "mrr": 0.1527777777777778,
+          "within_one": 0.53125
+        },
+        "heuristic_rules": {
+          "count": 128,
+          "top1": 0.8984375,
+          "top3": 1.0,
+          "mrr": 0.94921875,
+          "within_one": 0.8984375
+        }
+      },
+      "per_fault": {
+        "premature_final": {
+          "count": 39,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "memory_overwrite": {
+          "count": 60,
+          "top1": 0.8333333333333334,
+          "top3": 1.0,
+          "mrr": 0.9027777777777778,
+          "within_one": 0.9166666666666666
+        },
+        "loop_repetition": {
+          "count": 29,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        }
+      },
+      "per_family": {
+        "sql": {
+          "count": 32,
+          "top1": 0.875,
+          "top3": 1.0,
+          "mrr": 0.9270833333333333,
+          "within_one": 0.9375
+        },
+        "math": {
+          "count": 32,
+          "top1": 0.90625,
+          "top3": 1.0,
+          "mrr": 0.9427083333333334,
+          "within_one": 0.9375
+        },
+        "finance": {
+          "count": 32,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "doc_qa": {
+          "count": 32,
+          "top1": 0.90625,
+          "top3": 1.0,
+          "mrr": 0.9479166666666667,
+          "within_one": 0.96875
+        }
+      },
+      "heatmap": [
+        {
+          "fault": "loop_repetition",
+          "family": "doc_qa",
+          "count": 8,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "loop_repetition",
+          "family": "finance",
+          "count": 10,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "loop_repetition",
+          "family": "sql",
+          "count": 11,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "memory_overwrite",
+          "family": "doc_qa",
+          "count": 13,
+          "top1": 0.7692307692307693,
+          "top3": 1.0,
+          "mrr": 0.8717948717948718,
+          "within_one": 0.9230769230769231
+        },
+        {
+          "fault": "memory_overwrite",
+          "family": "finance",
+          "count": 6,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "memory_overwrite",
+          "family": "math",
+          "count": 32,
+          "top1": 0.90625,
+          "top3": 1.0,
+          "mrr": 0.9427083333333334,
+          "within_one": 0.9375
+        },
+        {
+          "fault": "memory_overwrite",
+          "family": "sql",
+          "count": 9,
+          "top1": 0.5555555555555556,
+          "top3": 1.0,
+          "mrr": 0.7407407407407407,
+          "within_one": 0.7777777777777778
+        },
+        {
+          "fault": "premature_final",
+          "family": "doc_qa",
+          "count": 11,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "premature_final",
+          "family": "finance",
+          "count": 16,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "premature_final",
+          "family": "sql",
+          "count": 12,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        }
+      ]
+    },
+    "natural_failures": {
+      "count": 31,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0,
+      "total_runs": 33,
+      "failed_runs": 33,
+      "passed_runs": 0,
+      "auroc": null,
+      "f1": 1.0,
+      "models": {
+        "m1": {
+          "count": 31,
+          "top1": 0.967741935483871,
+          "top3": 0.967741935483871,
+          "mrr": 0.9758064516129032,
+          "within_one": 0.967741935483871
+        },
+        "m2": {
+          "count": 31,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "m3": {
+          "count": 31,
+          "top1": 0.6129032258064516,
+          "top3": 0.6451612903225806,
+          "mrr": 0.701689708141321,
+          "within_one": 0.8387096774193549
+        },
+        "ensemble": {
+          "count": 31,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        }
+      },
+      "baselines": {
+        "random": {
+          "count": 31,
+          "top1": 0.16129032258064516,
+          "top3": 0.3225806451612903,
+          "mrr": 0.3239503328213006,
+          "within_one": 0.2903225806451613
+        },
+        "last_step": {
+          "count": 31,
+          "top1": 0.12903225806451613,
+          "top3": 0.3870967741935484,
+          "mrr": 0.32813620071684585,
+          "within_one": 0.3870967741935484
+        },
+        "first_tool_error": {
+          "count": 31,
+          "top1": 0.25806451612903225,
+          "top3": 0.5161290322580645,
+          "mrr": 0.4383512544802867,
+          "within_one": 0.5806451612903226
+        },
+        "heuristic_rules": {
+          "count": 31,
+          "top1": 0.8709677419354839,
+          "top3": 1.0,
+          "mrr": 0.9354838709677419,
+          "within_one": 0.8709677419354839
+        }
+      },
+      "per_fault": {
+        "counterfactual": {
+          "count": 31,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        }
+      },
+      "per_family": {
+        "math": {
+          "count": 6,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "doc_qa": {
+          "count": 9,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "sql": {
+          "count": 7,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        "finance": {
+          "count": 9,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        }
+      },
+      "heatmap": [
+        {
+          "fault": "natural",
+          "family": "doc_qa",
+          "count": 9,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "natural",
+          "family": "finance",
+          "count": 9,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "natural",
+          "family": "math",
+          "count": 6,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        },
+        {
+          "fault": "natural",
+          "family": "sql",
+          "count": 7,
+          "top1": 1.0,
+          "top3": 1.0,
+          "mrr": 1.0,
+          "within_one": 1.0
+        }
+      ]
+    }
+  },
+  "cross_provider": {
+    "trained_on": "sandbox only",
+    "tested_on": "gpt-6-luna dataset (all splits)",
+    "model_version": "7f41d9e12fb4",
+    "count": 2118,
+    "top1": 0.9612842304060434,
+    "top3": 0.9929178470254958,
+    "mrr": 0.978257228292639,
+    "within_one": 0.9636449480642115,
+    "total_runs": 2911,
+    "failed_runs": 2118,
+    "passed_runs": 793,
+    "auroc": 0.9775312073180462,
+    "f1": 0.8424821002386634,
+    "models": {
+      "m1": {
+        "count": 2118,
+        "top1": 0.5217186024551463,
+        "top3": 0.7459867799811143,
+        "mrr": 0.656426023352369,
+        "within_one": 0.722851746931067
+      },
+      "m2": {
+        "count": 2118,
+        "top1": 0.9608120868744098,
+        "top3": 0.9957507082152974,
+        "mrr": 0.9787698412698412,
+        "within_one": 0.9622285174693107
+      },
+      "m3": {
+        "count": 2118,
+        "top1": 0.2355996222851747,
+        "top3": 0.43201133144475923,
+        "mrr": 0.44239567876253433,
+        "within_one": 0.4140698772426818
+      },
+      "ensemble": {
+        "count": 2118,
+        "top1": 0.9612842304060434,
+        "top3": 0.9929178470254958,
+        "mrr": 0.978257228292639,
+        "within_one": 0.9636449480642115
+      }
+    },
+    "baselines": {
+      "random": {
+        "count": 2118,
+        "top1": 0.09867799811142587,
+        "top3": 0.3064211520302172,
+        "mrr": 0.2921466792571608,
+        "within_one": 0.2983947119924457
+      },
+      "last_step": {
+        "count": 2118,
+        "top1": 0.0,
+        "top3": 0.24645892351274787,
+        "mrr": 0.20970180014089362,
+        "within_one": 0.08687440982058546
+      },
+      "first_tool_error": {
+        "count": 2118,
+        "top1": 0.14636449480642116,
+        "top3": 0.35080264400377714,
+        "mrr": 0.32114734625357855,
+        "within_one": 0.40415486307837584
+      },
+      "heuristic_rules": {
+        "count": 2118,
+        "top1": 0.6435316336166195,
+        "top3": 0.836166194523135,
+        "mrr": 0.7650771167768335,
+        "within_one": 0.7124645892351275
+      }
+    },
+    "per_fault": {
+      "wrong_arguments": {
+        "count": 182,
+        "top1": 0.9725274725274725,
+        "top3": 1.0,
+        "mrr": 0.9862637362637363,
+        "within_one": 0.9725274725274725
+      },
+      "retrieval_poisoning": {
+        "count": 218,
+        "top1": 0.9311926605504587,
+        "top3": 1.0,
+        "mrr": 0.9655963302752294,
+        "within_one": 0.9311926605504587
+      },
+      "hallucinated_fact": {
+        "count": 184,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      "wrong_tool_value": {
+        "count": 435,
+        "top1": 0.9218390804597701,
+        "top3": 0.967816091954023,
+        "mrr": 0.9498823207443897,
+        "within_one": 0.9241379310344827
+      },
+      "dropped_constraint": {
+        "count": 182,
+        "top1": 0.9120879120879121,
+        "top3": 1.0,
+        "mrr": 0.9560439560439561,
+        "within_one": 0.9120879120879121
+      },
+      "empty_result": {
+        "count": 333,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      "tool_timeout": {
+        "count": 310,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      "premature_final": {
+        "count": 39,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      "stale_data": {
+        "count": 37,
+        "top1": 0.972972972972973,
+        "top3": 1.0,
+        "mrr": 0.9864864864864865,
+        "within_one": 0.972972972972973
+      },
+      "memory_overwrite": {
+        "count": 60,
+        "top1": 0.85,
+        "top3": 0.9833333333333333,
+        "mrr": 0.9208333333333333,
+        "within_one": 0.8833333333333333
+      },
+      "wrong_tool_choice": {
+        "count": 109,
+        "top1": 0.981651376146789,
+        "top3": 1.0,
+        "mrr": 0.9908256880733946,
+        "within_one": 1.0
+      },
+      "loop_repetition": {
+        "count": 29,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      }
+    },
+    "per_family": {
+      "math": {
+        "count": 533,
+        "top1": 0.9662288930581614,
+        "top3": 0.9943714821763602,
+        "mrr": 0.9815062985794692,
+        "within_one": 0.9699812382739212
+      },
+      "doc_qa": {
+        "count": 533,
+        "top1": 0.9287054409005628,
+        "top3": 1.0,
+        "mrr": 0.9640400250156348,
+        "within_one": 0.9287054409005628
+      },
+      "sql": {
+        "count": 529,
+        "top1": 0.9810964083175804,
+        "top3": 0.9924385633270322,
+        "mrr": 0.9878476910613017,
+        "within_one": 0.9867674858223062
+      },
+      "finance": {
+        "count": 523,
+        "top1": 0.9694072657743786,
+        "top3": 0.9847036328871893,
+        "mrr": 0.9797345898206318,
+        "within_one": 0.9694072657743786
+      }
+    },
+    "heatmap": [
+      {
+        "fault": "dropped_constraint",
+        "family": "doc_qa",
+        "count": 24,
+        "top1": 0.5,
+        "top3": 1.0,
+        "mrr": 0.75,
+        "within_one": 0.5
+      },
+      {
+        "fault": "dropped_constraint",
+        "family": "finance",
+        "count": 28,
+        "top1": 0.8571428571428571,
+        "top3": 1.0,
+        "mrr": 0.9285714285714286,
+        "within_one": 0.8571428571428571
+      },
+      {
+        "fault": "dropped_constraint",
+        "family": "math",
+        "count": 89,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "dropped_constraint",
+        "family": "sql",
+        "count": 41,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "empty_result",
+        "family": "doc_qa",
+        "count": 116,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "empty_result",
+        "family": "finance",
+        "count": 108,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "empty_result",
+        "family": "math",
+        "count": 2,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "empty_result",
+        "family": "sql",
+        "count": 107,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "hallucinated_fact",
+        "family": "doc_qa",
+        "count": 39,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "hallucinated_fact",
+        "family": "finance",
+        "count": 35,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "hallucinated_fact",
+        "family": "math",
+        "count": 70,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "hallucinated_fact",
+        "family": "sql",
+        "count": 40,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "loop_repetition",
+        "family": "doc_qa",
+        "count": 8,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "loop_repetition",
+        "family": "finance",
+        "count": 10,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "loop_repetition",
+        "family": "sql",
+        "count": 11,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "memory_overwrite",
+        "family": "doc_qa",
+        "count": 13,
+        "top1": 0.8461538461538461,
+        "top3": 1.0,
+        "mrr": 0.9230769230769231,
+        "within_one": 0.8461538461538461
+      },
+      {
+        "fault": "memory_overwrite",
+        "family": "finance",
+        "count": 6,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "memory_overwrite",
+        "family": "math",
+        "count": 32,
+        "top1": 0.90625,
+        "top3": 0.96875,
+        "mrr": 0.9453125,
+        "within_one": 0.9375
+      },
+      {
+        "fault": "memory_overwrite",
+        "family": "sql",
+        "count": 9,
+        "top1": 0.5555555555555556,
+        "top3": 1.0,
+        "mrr": 0.7777777777777778,
+        "within_one": 0.6666666666666666
+      },
+      {
+        "fault": "premature_final",
+        "family": "doc_qa",
+        "count": 11,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "premature_final",
+        "family": "finance",
+        "count": 16,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "premature_final",
+        "family": "sql",
+        "count": 12,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "retrieval_poisoning",
+        "family": "doc_qa",
+        "count": 68,
+        "top1": 0.7794117647058824,
+        "top3": 1.0,
+        "mrr": 0.8897058823529411,
+        "within_one": 0.7794117647058824
+      },
+      {
+        "fault": "retrieval_poisoning",
+        "family": "finance",
+        "count": 35,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "retrieval_poisoning",
+        "family": "math",
+        "count": 87,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "retrieval_poisoning",
+        "family": "sql",
+        "count": 28,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "stale_data",
+        "family": "finance",
+        "count": 37,
+        "top1": 0.972972972972973,
+        "top3": 1.0,
+        "mrr": 0.9864864864864865,
+        "within_one": 0.972972972972973
+      },
+      {
+        "fault": "tool_timeout",
+        "family": "doc_qa",
+        "count": 102,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "tool_timeout",
+        "family": "finance",
+        "count": 97,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "tool_timeout",
+        "family": "math",
+        "count": 4,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "tool_timeout",
+        "family": "sql",
+        "count": 107,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "wrong_arguments",
+        "family": "doc_qa",
+        "count": 22,
+        "top1": 0.9090909090909091,
+        "top3": 1.0,
+        "mrr": 0.9545454545454546,
+        "within_one": 0.9090909090909091
+      },
+      {
+        "fault": "wrong_arguments",
+        "family": "finance",
+        "count": 25,
+        "top1": 0.96,
+        "top3": 1.0,
+        "mrr": 0.98,
+        "within_one": 0.96
+      },
+      {
+        "fault": "wrong_arguments",
+        "family": "math",
+        "count": 98,
+        "top1": 0.9795918367346939,
+        "top3": 1.0,
+        "mrr": 0.9897959183673469,
+        "within_one": 0.9795918367346939
+      },
+      {
+        "fault": "wrong_arguments",
+        "family": "sql",
+        "count": 37,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "wrong_tool_choice",
+        "family": "doc_qa",
+        "count": 45,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "wrong_tool_choice",
+        "family": "finance",
+        "count": 23,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "wrong_tool_choice",
+        "family": "sql",
+        "count": 41,
+        "top1": 0.9512195121951219,
+        "top3": 1.0,
+        "mrr": 0.975609756097561,
+        "within_one": 1.0
+      },
+      {
+        "fault": "wrong_tool_value",
+        "family": "doc_qa",
+        "count": 85,
+        "top1": 0.9176470588235294,
+        "top3": 1.0,
+        "mrr": 0.9568627450980391,
+        "within_one": 0.9176470588235294
+      },
+      {
+        "fault": "wrong_tool_value",
+        "family": "finance",
+        "count": 103,
+        "top1": 0.9029126213592233,
+        "top3": 0.9223300970873787,
+        "mrr": 0.9262251502542765,
+        "within_one": 0.9029126213592233
+      },
+      {
+        "fault": "wrong_tool_value",
+        "family": "math",
+        "count": 151,
+        "top1": 0.9139072847682119,
+        "top3": 0.9867549668874173,
+        "mrr": 0.9529328287606433,
+        "within_one": 0.9205298013245033
+      },
+      {
+        "fault": "wrong_tool_value",
+        "family": "sql",
+        "count": 96,
+        "top1": 0.9583333333333334,
+        "top3": 0.9583333333333334,
+        "mrr": 0.9642857142857143,
+        "within_one": 0.9583333333333334
+      }
+    ]
+  },
+  "heatmap": [
+    {
+      "fault": "dropped_constraint",
+      "family": "doc_qa",
+      "count": 5,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "dropped_constraint",
+      "family": "finance",
+      "count": 6,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "dropped_constraint",
+      "family": "math",
+      "count": 16,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "dropped_constraint",
+      "family": "sql",
+      "count": 5,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "empty_result",
+      "family": "doc_qa",
+      "count": 18,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "empty_result",
+      "family": "finance",
+      "count": 21,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "empty_result",
+      "family": "math",
+      "count": 2,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "empty_result",
+      "family": "sql",
+      "count": 16,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "hallucinated_fact",
+      "family": "doc_qa",
+      "count": 4,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "hallucinated_fact",
+      "family": "finance",
+      "count": 4,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "hallucinated_fact",
+      "family": "math",
+      "count": 9,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "hallucinated_fact",
+      "family": "sql",
+      "count": 5,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "retrieval_poisoning",
+      "family": "doc_qa",
+      "count": 12,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "retrieval_poisoning",
+      "family": "finance",
+      "count": 7,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "retrieval_poisoning",
+      "family": "math",
+      "count": 11,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "retrieval_poisoning",
+      "family": "sql",
+      "count": 6,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "stale_data",
+      "family": "finance",
+      "count": 2,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "tool_timeout",
+      "family": "doc_qa",
+      "count": 16,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "tool_timeout",
+      "family": "finance",
+      "count": 17,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "tool_timeout",
+      "family": "math",
+      "count": 1,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "tool_timeout",
+      "family": "sql",
+      "count": 14,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "wrong_arguments",
+      "family": "doc_qa",
+      "count": 4,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "wrong_arguments",
+      "family": "finance",
+      "count": 3,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "wrong_arguments",
+      "family": "math",
+      "count": 14,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "wrong_arguments",
+      "family": "sql",
+      "count": 7,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "wrong_tool_choice",
+      "family": "doc_qa",
+      "count": 6,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "wrong_tool_choice",
+      "family": "finance",
+      "count": 3,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "wrong_tool_choice",
+      "family": "sql",
+      "count": 7,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "wrong_tool_value",
+      "family": "doc_qa",
+      "count": 16,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "wrong_tool_value",
+      "family": "finance",
+      "count": 18,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "wrong_tool_value",
+      "family": "math",
+      "count": 27,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "wrong_tool_value",
+      "family": "sql",
+      "count": 20,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "loop_repetition",
+      "family": "doc_qa",
+      "count": 8,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "loop_repetition",
+      "family": "finance",
+      "count": 10,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "loop_repetition",
+      "family": "sql",
+      "count": 11,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "memory_overwrite",
+      "family": "doc_qa",
+      "count": 13,
+      "top1": 0.7692307692307693,
+      "top3": 1.0,
+      "mrr": 0.8717948717948718,
+      "within_one": 0.9230769230769231
+    },
+    {
+      "fault": "memory_overwrite",
+      "family": "finance",
+      "count": 6,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "memory_overwrite",
+      "family": "math",
+      "count": 32,
+      "top1": 0.90625,
+      "top3": 1.0,
+      "mrr": 0.9427083333333334,
+      "within_one": 0.9375
+    },
+    {
+      "fault": "memory_overwrite",
+      "family": "sql",
+      "count": 9,
+      "top1": 0.5555555555555556,
+      "top3": 1.0,
+      "mrr": 0.7407407407407407,
+      "within_one": 0.7777777777777778
+    },
+    {
+      "fault": "premature_final",
+      "family": "doc_qa",
+      "count": 11,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "premature_final",
+      "family": "finance",
+      "count": 16,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    {
+      "fault": "premature_final",
+      "family": "sql",
+      "count": 12,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    }
+  ],
+  "per_fault": {
+    "empty_result": {
+      "count": 57,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    "wrong_tool_value": {
+      "count": 81,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    "wrong_arguments": {
+      "count": 28,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    "tool_timeout": {
+      "count": 48,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    "wrong_tool_choice": {
+      "count": 16,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    "retrieval_poisoning": {
+      "count": 36,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    "dropped_constraint": {
+      "count": 32,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    "hallucinated_fact": {
+      "count": 22,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    "stale_data": {
+      "count": 2,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    "premature_final": {
+      "count": 39,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    "memory_overwrite": {
+      "count": 60,
+      "top1": 0.8333333333333334,
+      "top3": 1.0,
+      "mrr": 0.9027777777777778,
+      "within_one": 0.9166666666666666
+    },
+    "loop_repetition": {
+      "count": 29,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    }
+  },
+  "ablations": {
+    "without_consistency": {
+      "count": 322,
+      "top1": 0.922360248447205,
+      "top3": 0.9906832298136646,
+      "mrr": 0.955848861283644,
+      "within_one": 0.9565217391304348,
+      "unseen_top1": 0.765625,
+      "features": [
+        "constraint_loss",
+        "value_inconsistency",
+        "contradiction",
+        "state_overwrite"
+      ]
+    },
+    "without_freshness": {
+      "count": 322,
+      "top1": 0.9906832298136646,
+      "top3": 0.9968944099378882,
+      "mrr": 0.9940476190476192,
+      "within_one": 0.9906832298136646,
+      "unseen_top1": 0.953125,
+      "features": [
+        "data_age_days",
+        "source_disagreement",
+        "value_deviation"
+      ]
+    },
+    "without_structural_detectors": {
+      "count": 322,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0,
+      "unseen_top1": 0.84375,
+      "features": [
+        "repetition",
+        "premature_answer",
+        "state_overwrite",
+        "missing_parent"
+      ]
+    },
+    "full_ensemble": {
+      "count": 322,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0,
+      "unseen_top1": 0.921875
+    },
+    "m1_alone": {
+      "count": 322,
+      "top1": 0.9968944099378882,
+      "top3": 0.9968944099378882,
+      "mrr": 0.9976708074534162,
+      "within_one": 0.9968944099378882,
+      "unseen_top1": 0.328125
+    },
+    "m2_alone": {
+      "count": 322,
+      "top1": 0.9968944099378882,
+      "top3": 1.0,
+      "mrr": 0.9984472049689441,
+      "within_one": 0.9968944099378882,
+      "unseen_top1": 0.8203125
+    },
+    "m3_alone": {
+      "count": 322,
+      "top1": 0.6739130434782609,
+      "top3": 0.8540372670807453,
+      "mrr": 0.7816449768313122,
+      "within_one": 0.8757763975155279,
+      "unseen_top1": 0.9140625
+    }
+  },
+  "replay": {
+    "attempted_runs": 40,
+    "k": 3,
+    "fix_success_rate": 1.0,
+    "diagnosis_correct_rate": 1.0,
+    "no_fix_available": 0,
+    "avoided_steps_pct": 52.25,
+    "tokens_saved_pct": 98.48925,
+    "tokens_saved_pct_without_cache": 62.74100000000001,
+    "time_saved_pct": 98.10225,
+    "tokens_estimated": false,
+    "protocol": "Ensemble top suspect; first automatic fix (retry, backup source or historical median; never the paired clean output); K variant replay from that checkpoint."
+  },
+  "latency": {
+    "mean_ms": 26.581696668290533,
+    "p95_ms": 37.869270001829136,
+    "runs": 30
+  },
+  "llm_cost": {
+    "total_cost_usd": 0.522303,
+    "calls": 8966,
+    "budget_usd": 5.0,
+    "by_purpose": [
+      {
+        "provider": "openai",
+        "model": "gpt-6-luna",
+        "purpose": "agent",
+        "calls": 3472,
+        "tokens_in": 534610,
+        "tokens_out": 281293,
+        "cached_in": 0,
+        "reasoning": 159081,
+        "cost_usd": 0.194107
+      },
+      {
+        "provider": "openai",
+        "model": "gpt-6-luna",
+        "purpose": "debug",
+        "calls": 3,
+        "tokens_in": 747,
+        "tokens_out": 557,
+        "cached_in": 0,
+        "reasoning": 391,
+        "cost_usd": 0.000353
+      },
+      {
+        "provider": "openai",
+        "model": "gpt-6-luna",
+        "purpose": "evaluation",
+        "calls": 153,
+        "tokens_in": 20297,
+        "tokens_out": 8132,
+        "cached_in": 0,
+        "reasoning": 4070,
+        "cost_usd": 0.006096
+      },
+      {
+        "provider": "openai",
+        "model": "gpt-6-luna",
+        "purpose": "fix",
+        "calls": 10,
+        "tokens_in": 1717,
+        "tokens_out": 957,
+        "cached_in": 0,
+        "reasoning": 512,
+        "cost_usd": 0.00065
+      },
+      {
+        "provider": "openai",
+        "model": "gpt-6-luna",
+        "purpose": "inject",
+        "calls": 4781,
+        "tokens_in": 622830,
+        "tokens_out": 388416,
+        "cached_in": 0,
+        "reasoning": 250896,
+        "cost_usd": 0.256491
+      },
+      {
+        "provider": "openai",
+        "model": "gpt-6-luna",
+        "purpose": "judge_all_at_once",
+        "calls": 100,
+        "tokens_in": 86849,
+        "tokens_out": 16632,
+        "cached_in": 0,
+        "reasoning": 12416,
+        "cost_usd": 0.017001
+      },
+      {
+        "provider": "openai",
+        "model": "gpt-6-luna",
+        "purpose": "judge_step_by_step",
+        "calls": 427,
+        "tokens_in": 191701,
+        "tokens_out": 55073,
+        "cached_in": 0,
+        "reasoning": 35611,
+        "cost_usd": 0.046707
+      },
+      {
+        "provider": "openai",
+        "model": "gpt-6-luna",
+        "purpose": "replay",
+        "calls": 20,
+        "tokens_in": 2469,
+        "tokens_out": 1303,
+        "cached_in": 0,
+        "reasoning": 728,
+        "cost_usd": 0.000898
+      }
+    ]
+  },
+  "provenance": {
+    "datasets": [
+      "data/dataset_openai.db"
+    ],
+    "train_datasets": [
+      "data/dataset_sandbox.db",
+      "data/dataset_openai.db"
+    ],
+    "cross_datasets": null,
+    "seed": 42,
+    "counts": {
+      "train": 1880,
+      "validation": 453,
+      "test": 450,
+      "unseen_fault": 128
+    },
+    "manifests": {
+      "data/dataset_openai.db": {
+        "created_at": "2026-10-03T16:35:35.180012+00:00",
+        "dataset": "data\\dataset_openai.db",
+        "provider": "openai",
+        "model": "gpt-6-luna",
+        "noise": null,
+        "seed": 42,
+        "tasks": 800,
+        "runs": 2918,
+        "steps": 29110,
+        "clean": 793,
+        "natural_failures": 0,
+        "injected": 2118,
+        "counterfactual_labelled": 0,
+        "counterfactual_attempted": 0,
+        "labeler_agreement_with_simulation": null,
+        "errors": 7,
+        "error_examples": [
+          "Error code: 400 - {'error': {'message': \"Unsupported value: 'temperature' does not support 0.0 with this model. Only the default (1) value is supported.\", 'type': 'invalid_request_error', 'param': 'temperature', 'code': 'unsupported_value'}}",
+          "Error code: 400 - {'error': {'message': \"Unsupported value: 'temperature' does not support 0.0 with this model. Only the default (1) value is supported.\", 'type': 'invalid_request_error', 'param': 'temperature', 'code': 'unsupported_value'}}",
+          "Error code: 400 - {'error': {'message': \"Unsupported value: 'temperature' does not support 0.0 with this model. Only the default (1) value is supported.\", 'type': 'invalid_request_error', 'param': 'temperature', 'code': 'unsupported_value'}}",
+          "Error code: 400 - {'error': {'message': \"Unsupported value: 'temperature' does not support 0.0 with this model. Only the default (1) value is supported.\", 'type': 'invalid_request_error', 'param': 'temperature', 'code': 'unsupported_value'}}",
+          "Error code: 400 - {'error': {'message': \"Unsupported value: 'temperature' does not support 0.0 with this model. Only the default (1) value is supported.\", 'type': 'invalid_request_error', 'param': 'temperature', 'code': 'unsupported_value'}}"
+        ],
+        "counts": {
+          "train/injected": 1343,
+          "validation/injected": 325,
+          "unseen_fault/injected": 128,
+          "test/injected": 322,
+          "train/clean": 537,
+          "test/clean": 128,
+          "validation/clean": 128,
+          "train/None": 7
+        },
+        "billed_cost_usd": 0.393735,
+        "elapsed_s": 1776.2
+      }
+    },
+    "model": {
+      "datasets": [
+        "data/dataset_sandbox.db",
+        "data/dataset_openai.db"
+      ],
+      "seed": 42,
+      "epochs": 30,
+      "train_runs": 3484,
+      "validation_runs": 839,
+      "train_steps": 34840,
+      "lightgbm_rounds": 600,
+      "fault_types_seen": [
+        "dropped_constraint",
+        "empty_result",
+        "hallucinated_fact",
+        "retrieval_poisoning",
+        "stale_data",
+        "tool_timeout",
+        "wrong_arguments",
+        "wrong_tool_choice",
+        "wrong_tool_value"
+      ],
+      "label_methods": [
+        "counterfactual",
+        "counterfactual_unresolved",
+        "injected"
+      ],
+      "device": "cuda",
+      "train_seconds": 86.0
+    },
+    "semantic": {
+      "embedder": "sentence-transformers/all-MiniLM-L6-v2",
+      "nli": "cross-encoder/nli-deberta-v3-small",
+      "fallback": false,
+      "device": "cuda"
+    },
+    "unseen_faults": [
+      "loop_repetition",
+      "memory_overwrite",
+      "premature_final"
+    ],
+    "split_strategy": "Disjoint prompt templates per split (8/2/2 of 12 per family); held-out fault types 10-12 only in the unseen-fault split.",
+    "limitations": [
+      "Sandbox agent with a fixed ten-step DAG; production traces will be noisier.",
+      "Injected faults are realistic but synthetic; natural failures come from the configured LLM provider.",
+      "LLM-judge baselines run on a subset of test runs to limit cost."
+    ]
+  },
+  "latency_ms": 26.581696668290533,
+  "natural_failures_source": "sandbox agent (rule-based LLM stand-in with 7% mistake rate); GPT-6 Luna made 0 natural failures in 793 runs",
+  "cross_provider_note": "Models trained on sandbox data only, tested on all 2,118 GPT-6 Luna failed runs",
+  "public_benchmarks": {
+    "who_and_when": {
+      "benchmark": "Who&When",
+      "generated_at": "2026-10-03T17:29:43.233366+00:00",
+      "cases": 181,
+      "mean_steps": 22.320441988950275,
+      "results": {
+        "ensemble": {
+          "count": 181,
+          "top1": 0.04419889502762431,
+          "top3": 0.22099447513812154,
+          "mrr": 0.21970252708170468,
+          "within_one": 0.3149171270718232,
+          "agent_accuracy": 0.12154696132596685
+        },
+        "m2_lightgbm": {
+          "count": 181,
+          "top1": 0.049723756906077346,
+          "top3": 0.24861878453038674,
+          "mrr": 0.24269189581590703,
+          "within_one": 0.3259668508287293,
+          "agent_accuracy": 0.22099447513812154
+        },
+        "m3_autoencoder": {
+          "count": 181,
+          "top1": 0.09944751381215469,
+          "top3": 0.3259668508287293,
+          "mrr": 0.28258981806999783,
+          "within_one": 0.18232044198895028,
+          "agent_accuracy": 0.30386740331491713
+        },
+        "random": {
+          "count": 181,
+          "top1": 0.11602209944751381,
+          "top3": 0.3259668508287293,
+          "mrr": 0.2918202626904248,
+          "within_one": 0.2983425414364641,
+          "agent_accuracy": 0.3370165745856354
+        },
+        "first_step": {
+          "count": 181,
+          "top1": 0.11049723756906077,
+          "top3": 0.36464088397790057,
+          "mrr": 0.31608599172575946,
+          "within_one": 0.30386740331491713,
+          "agent_accuracy": 0.3425414364640884
+        },
+        "last_step": {
+          "count": 181,
+          "top1": 0.03867403314917127,
+          "top3": 0.17679558011049723,
+          "mrr": 0.2116520600575494,
+          "within_one": 0.13812154696132597,
+          "agent_accuracy": 0.43646408839779005
+        },
+        "in_domain_lightgbm_5fold_cv": {
+          "count": 181,
+          "top1": 0.2983425414364641,
+          "top3": 0.5193370165745856,
+          "mrr": 0.468722783973253,
+          "within_one": 0.43646408839779005,
+          "agent_accuracy": 0.49171270718232046,
+          "note": "Trained on Who&When itself with 5-fold cross-validation by case (no case in its own training fold)."
+        },
+        "llm_all_at_once (gpt-6-luna)": {
+          "count": 181,
+          "top1": 0.3756906077348066,
+          "top3": 0.5359116022099447,
+          "mrr": 0.49905690464309566,
+          "within_one": 0.5138121546961326,
+          "agent_accuracy": 0.6077348066298343
+        }
+      },
+      "by_subset": {
+        "Hand-Crafted": {
+          "count": 55,
+          "ensemble_top1": 0.0,
+          "random_top1": 0.03636363636363636
+        },
+        "Algorithm-Generated": {
+          "count": 126,
+          "ensemble_top1": 0.06349206349206349,
+          "random_top1": 0.15079365079365079
+        }
+      },
+      "paper_reference": {
+        "source": "Zhang et al., 'Which Agent Causes Task Failures and When?' ICML 2025 (arXiv:2505.00212)",
+        "note": "Prompted-LLM step-level accuracy reported in the paper is roughly 8-25% depending on method/model; agent-level is up to ~54%. Different protocol details apply; not a like-for-like comparison."
+      },
+      "model_version": "c42ff0fbf179",
+      "notes": "Zero-shot transfer: no Who&When data was used for training. Traces longer than 24 steps are scored by M2+M3 only (Transformer positional limit)."
+    }
+  }
+}

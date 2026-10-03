@@ -121,17 +121,12 @@ def evaluate(cases, judge=None, judge_limit=None, seed=42) -> dict:
         raise RuntimeError("Train models first: python -m blackbox.models.train")
     encoded = build_matrices(cases, shared_encoder(), model.stats)
     names = [[s["node_name"] for s in c["steps"]] for c in cases]
-    base = model.outputs
-    # The Transformer's positional table covers 24 steps; longer traces use M2+M3.
-    short = ModelOutputs(base.transformer, base.booster, base.autoencoder, (base.mean, base.std), base.ae_medians, base.device)
-    long = ModelOutputs(None, base.booster, base.autoencoder, (base.mean, base.std), base.ae_medians, base.device)
-    items = []
-    for case, enc, name in zip(cases, encoded, names):
-        runner = short if len(case["steps"]) <= 24 else long
-        items.append(runner.compute([enc], [name])[0])
+    # Long conversations are scored with the Transformer over overlapping 24-step windows.
+    items = model.outputs.compute(encoded, names)
     rankings = {"ensemble": [rank_steps(c, blend(i, model.weights)) for c, i in zip(cases, items)],
                 "m2_lightgbm": [rank_steps(c, i["m2"]) for c, i in zip(cases, items)],
-                "m3_autoencoder": [rank_steps(c, i["m3"]) for c, i in zip(cases, items)]}
+                "m3_autoencoder": [rank_steps(c, i["m3"]) for c, i in zip(cases, items)],
+                "m1_transformer_windows": [rank_steps(c, i["m1"]) for c, i in zip(cases, items)]}
     rng = random.Random(seed)
     rankings["random"] = [rng.sample([s["step_id"] for s in c["steps"]], len(c["steps"])) for c in cases]
     rankings["first_step"] = [[s["step_id"] for s in c["steps"]] for c in cases]
@@ -159,7 +154,7 @@ def evaluate(cases, judge=None, judge_limit=None, seed=42) -> dict:
             "mean_steps": float(np.mean([len(c["steps"]) for c in cases])), "results": report, "by_subset": by_subset,
             "paper_reference": PAPER_REFERENCE, "model_version": model.version,
             "notes": "Zero-shot transfer: no Who&When data was used for training. Traces longer than 24 steps "
-                     "are scored by M2+M3 only (Transformer positional limit)."}
+                     "are scored by the Transformer over overlapping 24-step windows (stride 12)."}
 
 
 def main():
@@ -170,16 +165,20 @@ def main():
     parser.add_argument("--judge", choices=["openai", "ollama"], default=None)
     parser.add_argument("--judge-limit", type=int, default=None)
     parser.add_argument("--output", default=str(ROOT / "data" / "benchmark_whowhen.json"))
-    parser.add_argument("--metrics", default=str(ROOT / "data" / "metrics.json"))
+    parser.add_argument("--metrics", default=None,
+                        help="merge into this metrics file (off by default so measured judge results are never overwritten)")
     args = parser.parse_args()
     cases = load_cases()
     logger.info("Loaded %d Who&When cases", len(cases))
     report = evaluate(cases, args.judge, args.judge_limit)
     Path(args.output).write_text(json.dumps(report, indent=2), encoding="utf-8")
-    metrics_path = Path(args.metrics)
-    if metrics_path.is_file():
+    metrics_path = Path(args.metrics) if args.metrics else None
+    if metrics_path and metrics_path.is_file():
         metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
-        metrics.setdefault("public_benchmarks", {})["who_and_when"] = report
+        previous = metrics.setdefault("public_benchmarks", {}).get("who_and_when", {}).get("results", {})
+        # Keep earlier LLM-judge measurements when this run did not re-judge.
+        report["results"] = {**{k: v for k, v in previous.items() if k.startswith("llm")}, **report["results"]}
+        metrics["public_benchmarks"]["who_and_when"] = report
         metrics_path.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
     print(json.dumps({k: {m: v[m] for m in ("count", "top1", "top3", "agent_accuracy")} for k, v in report["results"].items()}, indent=2))
 

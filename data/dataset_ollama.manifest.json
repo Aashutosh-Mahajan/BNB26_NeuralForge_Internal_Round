@@ -1,0 +1,38 @@
+{
+  "created_at": "2026-10-03T19:09:08.046380+00:00",
+  "dataset": "D:\\Projects\\BNB26_NeuralForge_Internal_Round\\data\\dataset_ollama.db",
+  "provider": "ollama",
+  "model": "qwen2.5:3b",
+  "noise": null,
+  "seed": 7,
+  "tasks": 160,
+  "runs": 160,
+  "steps": 1600,
+  "clean": 53,
+  "natural_failures": 107,
+  "injected": 0,
+  "counterfactual_labelled": 88,
+  "counterfactual_attempted": 107,
+  "labeler_agreement_with_simulation": null,
+  "errors": 0,
+  "error_examples": [],
+  "counts": {
+    "train/natural": 75,
+    "train/clean": 37,
+    "test/natural": 16,
+    "validation/clean": 8,
+    "validation/natural": 16,
+    "test/clean": 8
+  },
+  "billed_cost_usd": 0.0,
+  "elapsed_s": 1547.1,
+  "relabel": {
+    "natural_failures": 107,
+    "labelled": 88,
+    "label_nodes": {
+      "router": 87,
+      "reasoner": 1
+    },
+    "fixer": "careful-rerun (no gold answer)"
+  }
+}

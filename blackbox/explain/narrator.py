@@ -71,7 +71,8 @@ def narrate(run: dict, diagnosis: dict | None, mode: str = "auto") -> dict:
     if mode == "llm":
         from ..llm import get_llm
         try:
-            llm = get_llm(cfg.provider if cfg.provider != "sandbox" else "openai")
+            # Zero-credit default: narratives come from local Ollama unless EXPLAINER_LLM=openai.
+            llm = get_llm(cfg.explainer_llm if cfg.explainer_llm in ("ollama", "openai") else "ollama")
             result = llm.complete_json(SYSTEM + " Respond with JSON only: {\"narrative\": \"...\"}",
                                        prompt_for(run, diagnosis), seed=5, purpose="explainer", run_id=run.get("run_id"))
             text = (result.data or {}).get("narrative") if isinstance(result.data, dict) else None

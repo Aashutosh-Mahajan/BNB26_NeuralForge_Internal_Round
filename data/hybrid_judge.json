@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-10-03T19:36:39.662234+00:00",
+  "cost_usd": 0.0,
+  "protocol": "Black Box top-3 shortlist; the local LLM must pick one of them. Same runs for all three methods.",
+  "gpt6luna_test_split": {
+    "runs": 100,
+    "judge_model": "ollama:qwen2.5:3b",
+    "blackbox_alone": {
+      "count": 100,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    "local_llm_alone": {
+      "count": 100,
+      "top1": 0.27,
+      "top3": 0.49,
+      "mrr": 0.4474166666666667,
+      "within_one": 0.44
+    },
+    "hybrid_blackbox_shortlist_plus_llm": {
+      "count": 100,
+      "top1": 0.73,
+      "top3": 1.0,
+      "mrr": 0.865,
+      "within_one": 1.0
+    },
+    "mean_call_ms": 1410.036994999391,
+    "hybrid_invalid_picks": 45
+  }
+}

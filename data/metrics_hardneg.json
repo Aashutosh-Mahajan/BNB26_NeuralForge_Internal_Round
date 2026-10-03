@@ -1,0 +1,34 @@
+{
+  "generated_at": "2026-10-03T19:54:07.142236+00:00",
+  "alarm_threshold": 0.5,
+  "cost_usd": 0.0,
+  "planted_failures": {
+    "runs": 107,
+    "detected": 1.0
+  },
+  "categories": {
+    "unusual_values": {
+      "runs": 118,
+      "false_alarm_rate": 0.22033898305084745,
+      "mean_p_fail": 0.29186196610169496,
+      "auroc_vs_failures": 0.9892285759543799
+    },
+    "recovered_retry": {
+      "runs": 40,
+      "false_alarm_rate": 1.0,
+      "mean_p_fail": 1.0,
+      "auroc_vs_failures": 0.0
+    },
+    "harmless_warning": {
+      "runs": 40,
+      "false_alarm_rate": 0.95,
+      "mean_p_fail": 0.8634389499999999,
+      "auroc_vs_failures": 0.736214953271028
+    }
+  },
+  "overall": {
+    "hard_negatives": 198,
+    "false_alarm_rate": 0.5252525252525253,
+    "auroc_vs_failures": 0.7382705560275654
+  }
+}

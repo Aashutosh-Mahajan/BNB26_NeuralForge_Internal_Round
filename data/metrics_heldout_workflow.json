@@ -1,0 +1,67 @@
+{
+  "generated_at": "2026-10-03T19:49:30.555503+00:00",
+  "workflow": "expense-agent (never in training)",
+  "failed_runs": 125,
+  "clean_runs": 25,
+  "cost_usd": 0.0,
+  "black_box": {
+    "count": 125,
+    "top1": 0.232,
+    "top3": 0.6,
+    "mrr": 0.474,
+    "within_one": 0.56
+  },
+  "rules": {
+    "count": 125,
+    "top1": 0.4,
+    "top3": 0.6,
+    "mrr": 0.5566666666666666,
+    "within_one": 0.4
+  },
+  "random": {
+    "count": 125,
+    "top1": 0.12,
+    "top3": 0.576,
+    "mrr": 0.4052,
+    "within_one": 0.552
+  },
+  "auroc": 0.5751999999999999,
+  "per_fault_node": {
+    "parse_request": {
+      "count": 25,
+      "top1": 0.0,
+      "top3": 0.0,
+      "mrr": 0.20000000000000004,
+      "within_one": 0.76
+    },
+    "fetch_fx_rate": {
+      "count": 25,
+      "top1": 1.0,
+      "top3": 1.0,
+      "mrr": 1.0,
+      "within_one": 1.0
+    },
+    "fetch_hotel_price": {
+      "count": 25,
+      "top1": 0.16,
+      "top3": 1.0,
+      "mrr": 0.58,
+      "within_one": 1.0
+    },
+    "compute_total": {
+      "count": 25,
+      "top1": 0.0,
+      "top3": 1.0,
+      "mrr": 0.34,
+      "within_one": 0.04
+    },
+    "final_answer": {
+      "count": 25,
+      "top1": 0.0,
+      "top3": 0.0,
+      "mrr": 0.25,
+      "within_one": 0.0
+    }
+  },
+  "note": "Zero-shot: the models were trained only on the four built-in task families."
+}

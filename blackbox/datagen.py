@@ -20,7 +20,7 @@ from pathlib import Path
 import random
 import time
 
-from .agent.templates import generate_tasks
+from .agent.templates import generate_hard_tasks, generate_tasks
 from .config import ROOT
 from .engine import Engine, FAULT_CATALOG
 from .labeler import label_run
@@ -59,12 +59,12 @@ def _inject_some(engine, run, faults, count, rng, split):
 
 def generate(out: str, provider: str = "sandbox", noise: float = 0.07, tasks_per_family: int = 200,
              seed: int = 42, workers: int = 1, label_limit: int | None = None, k: int = 3,
-             inject_per_run: tuple[int, int] = (2, 3)) -> dict:
+             inject_per_run: tuple[int, int] = (2, 3), inject: bool = True, hard: bool = False) -> dict:
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     llm = SandboxLLM(noise) if provider == "sandbox" else get_llm(provider)
     engine = Engine(str(out_path), llm=llm)
-    tasks = generate_tasks(tasks_per_family, seed)
+    tasks = generate_hard_tasks(tasks_per_family, seed) if hard else generate_tasks(tasks_per_family, seed)
     rng = random.Random(seed)
     started = time.time()
     clean_ids, natural_ids, errors = [], [], []
@@ -114,7 +114,9 @@ def generate(out: str, provider: str = "sandbox", noise: float = 0.07, tasks_per
             made += _inject_some(engine, run, HELD_OUT, 1, local, "unseen_fault")
         return made
 
-    if workers > 1:
+    if not inject:
+        pass
+    elif workers > 1:
         with ThreadPoolExecutor(workers) as pool:
             for made in pool.map(inject_for, sorted(clean_ids)):
                 injected += made
@@ -177,12 +179,16 @@ def main():
     parser.add_argument("--label-limit", type=int, default=None, help="max natural failures to label")
     parser.add_argument("--k", type=int, default=3)
     parser.add_argument("--out", default=None)
+    parser.add_argument("--no-inject", action="store_true", help="natural failures only: skip fault injection")
+    parser.add_argument("--hard", action="store_true", help="harder prompts: numbers in words, distractors, conflicting hints")
     args = parser.parse_args()
     out = args.out or str(ROOT / "data" / f"dataset_{args.provider}.db")
     if Path(out).exists():
         parser.error(f"{out} exists; delete it or pass --out")
+    if args.provider == "openai":
+        print("Note: --provider openai bills API credits (capped by LLM_BUDGET_USD).")
     manifest = generate(out, args.provider, args.noise, args.tasks_per_family, args.seed, args.workers,
-                        args.label_limit, args.k)
+                        args.label_limit, args.k, inject=not args.no_inject, hard=args.hard)
     print(json.dumps(manifest, indent=2))
     if args.provider == "openai":
         print(json.dumps(UsageLedger().summary(), indent=2))

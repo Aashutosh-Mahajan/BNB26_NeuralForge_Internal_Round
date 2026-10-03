@@ -77,6 +77,12 @@ def heuristic(run: dict, successful_runs: list[dict] | None = None) -> dict:
             "latency_ms": round((perf_counter() - start) * 1000, 3)}
 
 
+def _semantic_fallback() -> bool:
+    """True when MiniLM/NLI could not load and hashed embeddings stand in (shown in the UI)."""
+    from .features.semantic import shared_encoder
+    return bool(shared_encoder().fallback)
+
+
 def _ensemble_result(run, item, model, successful_runs, start):
     details, rows = item["details"], item["rows"]
     blame = item["blame"]
@@ -103,7 +109,31 @@ def _ensemble_result(run, item, model, successful_runs, start):
                          "model_votes": votes, "attribution_method": "lightgbm_treeshap",
                          "limitations": "The ranking is a learned hypothesis; replay from the blamed step tests it."},
             "method": "ensemble", "model_status": "trained", "model_version": model.version,
+            "semantic_fallback": _semantic_fallback(),
             "weights": model.weights, "latency_ms": round((perf_counter() - start) * 1000, 3)}
+
+
+def _abstain_threshold():
+    """Ranking-score threshold chosen on validation (data/calibration.json), if measured."""
+    import json
+    from pathlib import Path
+    from .config import ROOT
+    path = Path(ROOT / "data" / "calibration.json")
+    try:
+        return float(json.loads(path.read_text(encoding="utf-8"))["abstain_below_ranking_score"]) if path.is_file() else None
+    except (OSError, ValueError, KeyError):
+        return None
+
+
+def _mark_abstention(result):
+    tau = _abstain_threshold()
+    root = result.get("root_cause")
+    result["abstain"] = bool(tau is not None and root and root["confidence"] < tau)
+    result["abstain_threshold"] = tau
+    if result["abstain"]:
+        result["abstain_reason"] = (f"The top ranking score ({root['confidence']:.0%}) is below the threshold "
+                                    f"({tau:.0%}) chosen on validation data; treat the top 3 suspects as candidates.")
+    return result
 
 
 def diagnose_many(runs: list[dict], successful_runs: list[dict] | None = None, method: str = "auto") -> list[dict]:
@@ -125,6 +155,7 @@ def diagnose_many(runs: list[dict], successful_runs: list[dict] | None = None, m
     per_run = (perf_counter() - start) * 1000 / max(1, len(runs))
     for result in results:
         result["latency_ms"] = round(per_run, 3)
+        _mark_abstention(result)
     return results
 
 

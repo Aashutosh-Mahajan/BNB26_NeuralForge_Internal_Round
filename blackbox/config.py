@@ -39,7 +39,12 @@ class Settings:
     seed: int
     ollama_base_url: str
     ollama_model: str
+    ollama_num_ctx: int
+    explainer_llm: str
+    alert_webhook: str | None
+    alert_threshold: float
     budget_usd: float
+    budget_start: str | None
     price_input: float
     price_cached_input: float
     price_output: float
@@ -78,8 +83,14 @@ def settings() -> Settings:
         seed=int(os.environ.get("LLM_SEED", "7")),
         ollama_base_url=os.environ.get("OLLAMA_BASE_URL", "http://127.0.0.1:11434"),
         ollama_model=os.environ.get("OLLAMA_MODEL", "qwen2.5:3b"),
-        budget_usd=_float("LLM_BUDGET_USD", 5.0),
-        # GPT-6 Luna standard pricing, USD per 1M tokens.
+        ollama_num_ctx=int(os.environ.get("OLLAMA_NUM_CTX", "8192")),
+        # The narrative explainer never bills OpenAI unless explicitly set to "openai".
+        explainer_llm=os.environ.get("EXPLAINER_LLM", "ollama").strip().lower(),
+        alert_webhook=os.environ.get("ALERT_WEBHOOK_URL") or None,
+        alert_threshold=_float("ALERT_P_FAIL_THRESHOLD", 0.8),
+        budget_usd=_float("LLM_BUDGET_USD", 0.5),
+        budget_start=os.environ.get("LLM_BUDGET_START") or None,
+        # USD per 1M tokens; .env sets the live model's prices (gpt-5.4-nano: 0.20 / 0.02 / 1.25).
         price_input=_float("LLM_PRICE_INPUT_PER_M", 0.10),
         price_cached_input=_float("LLM_PRICE_CACHED_INPUT_PER_M", 0.01),
         price_output=_float("LLM_PRICE_OUTPUT_PER_M", 0.50),

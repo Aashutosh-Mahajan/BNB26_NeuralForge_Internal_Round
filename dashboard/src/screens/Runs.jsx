@@ -91,10 +91,10 @@ export default function Runs({ runs, stats, loading, openRun, go, reload }) {
           note={ensemble ? "per run, trained models on GPU" : "rule-based fallback (no trained models)"}
         />
         <Stat
-          label="Finds the right step"
+          label="Suspect is the true origin"
           value={stats?.top1 != null ? percent(stats.top1, 1) : "—"}
           tone={stats?.top1 != null ? "tone-pass" : ""}
-          note={stats?.top1 != null ? "measured on held-out test runs" : "run the evaluation to measure"}
+          note={stats?.top1 != null ? "top-1 on held-out GPT-6 Luna test runs" : "run the evaluation to measure"}
         />
       </div>
 
@@ -161,7 +161,7 @@ export default function Runs({ runs, stats, loading, openRun, go, reload }) {
               <tr>
                 <th>Task</th>
                 <th>Result</th>
-                <th>Root cause</th>
+                <th>Leading suspect</th>
                 <th>Tokens · cost</th>
                 <th>Time</th>
               </tr>

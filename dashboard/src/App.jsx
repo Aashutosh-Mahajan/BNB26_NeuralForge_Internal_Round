@@ -23,6 +23,7 @@ export default function App() {
   const [runs, setRuns] = useState([]);
   const [stats, setStats] = useState(null);
   const [llm, setLlm] = useState(null);
+  const [benchModel, setBenchModel] = useState(null);
   const [selected, setSelected] = useState(null);
   const [compareIds, setCompareIds] = useState(null);
   const [error, setError] = useState("");
@@ -44,6 +45,12 @@ export default function App() {
 
   useEffect(() => {
     reload();
+    api("/eval")
+      .then((m) => {
+        const models = Object.values(m.provenance?.manifests || {}).map((x) => x.model).filter((x) => x && !x.startsWith("rule"));
+        setBenchModel(models[0] || null);
+      })
+      .catch(() => {});
   }, [reload]);
 
   const go = (target) => {
@@ -81,10 +88,11 @@ export default function App() {
           ))}
         </nav>
         {llm && (
-          <div className="agent-pill" title="Default agent model and OpenAI spend so far">
+          <div className="agent-pill" title="Live agent model (default and OpenAI option) and the model the benchmarks were measured on">
             <span className="dot" />
-            Agent <strong>{llm.active_provider === "sandbox" ? "Offline sandbox" : llm.active_model}</strong>
-            {llm.openai_key_configured && <> · GPT spend <strong>{money(llm.spent_usd)}</strong></>}
+            Live agent <strong>{llm.active_provider === "sandbox" ? "offline sandbox" : llm.active_model}</strong>
+            {llm.openai_key_configured && <> or <strong>{llm.openai_model}</strong></>}
+            {benchModel && <> · benchmarks on <strong>{benchModel}</strong></>}
           </div>
         )}
       </header>
@@ -103,7 +111,6 @@ export default function App() {
           <RunDetail
             run={selected}
             onBack={() => go("runs")}
-            onReplay={() => go("replay")}
             onBreak={() => go("break")}
           />
         )}

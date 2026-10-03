@@ -1,7 +1,7 @@
-"""Optional PyTorch architecture; importing this file requires the ml extra.
+"""M1 Step Blame Transformer: the main diagnosis model (60% of the ensemble weight).
 
-No trained neural weights are shipped. The live diagnosis does not use this
-architecture until a separately evaluated artifact is integrated.
+Trained by ``blackbox.models.train``; weights live in ``data/models/transformer.pt``.
+Inference on runs longer than ``max_steps`` uses overlapping windows (see ensemble.py).
 """
 from __future__ import annotations
 import torch

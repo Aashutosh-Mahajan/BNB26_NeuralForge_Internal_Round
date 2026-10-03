@@ -114,7 +114,7 @@ def evaluate_replay(dataset, runs, seed, limit=40, k=3):
         step = diag["root_cause"]["step"]
         correct_target.append(step == run["label_step"])
         options = [o for o in engine.suggest_fix(run["run_id"], step, successful_runs=successes)["options"]
-                   if o["id"] != "historical_match"]
+                   if o.get("kind") != "output_substitution"]
         if not options:
             no_fix += 1
             outcomes.append(0.0)

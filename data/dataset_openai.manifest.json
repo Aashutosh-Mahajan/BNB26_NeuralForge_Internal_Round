@@ -1,0 +1,37 @@
+{
+  "created_at": "2026-10-03T16:35:35.180012+00:00",
+  "dataset": "data\\dataset_openai.db",
+  "provider": "openai",
+  "model": "gpt-6-luna",
+  "noise": null,
+  "seed": 42,
+  "tasks": 800,
+  "runs": 2918,
+  "steps": 29110,
+  "clean": 793,
+  "natural_failures": 0,
+  "injected": 2118,
+  "counterfactual_labelled": 0,
+  "counterfactual_attempted": 0,
+  "labeler_agreement_with_simulation": null,
+  "errors": 7,
+  "error_examples": [
+    "Error code: 400 - {'error': {'message': \"Unsupported value: 'temperature' does not support 0.0 with this model. Only the default (1) value is supported.\", 'type': 'invalid_request_error', 'param': 'temperature', 'code': 'unsupported_value'}}",
+    "Error code: 400 - {'error': {'message': \"Unsupported value: 'temperature' does not support 0.0 with this model. Only the default (1) value is supported.\", 'type': 'invalid_request_error', 'param': 'temperature', 'code': 'unsupported_value'}}",
+    "Error code: 400 - {'error': {'message': \"Unsupported value: 'temperature' does not support 0.0 with this model. Only the default (1) value is supported.\", 'type': 'invalid_request_error', 'param': 'temperature', 'code': 'unsupported_value'}}",
+    "Error code: 400 - {'error': {'message': \"Unsupported value: 'temperature' does not support 0.0 with this model. Only the default (1) value is supported.\", 'type': 'invalid_request_error', 'param': 'temperature', 'code': 'unsupported_value'}}",
+    "Error code: 400 - {'error': {'message': \"Unsupported value: 'temperature' does not support 0.0 with this model. Only the default (1) value is supported.\", 'type': 'invalid_request_error', 'param': 'temperature', 'code': 'unsupported_value'}}"
+  ],
+  "counts": {
+    "train/injected": 1343,
+    "validation/injected": 325,
+    "unseen_fault/injected": 128,
+    "test/injected": 322,
+    "train/clean": 537,
+    "test/clean": 128,
+    "validation/clean": 128,
+    "train/None": 7
+  },
+  "billed_cost_usd": 0.393735,
+  "elapsed_s": 1776.2
+}

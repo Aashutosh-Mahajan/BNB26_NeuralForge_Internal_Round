@@ -126,11 +126,11 @@ def test_seed_only_runs_on_empty_database(tmp_path):
     database = tmp_path / "traces.db"
     with TestClient(create_app(database, seed_demo=True)) as client:
         runs = client.get("/runs").json()["runs"]
-        assert len(runs) == 5
+        assert len(runs) == 6
         assert {run["task_family"] for run in runs} == {"finance", "sql", "doc_qa", "math"}
         assert sum(run["status"] == "FAILED" for run in runs) == 1
     with TestClient(create_app(database, seed_demo=True)) as client:
-        assert client.get("/runs").json()["total"] == 5
+        assert client.get("/runs").json()["total"] == 6
 
 
 
@@ -186,7 +186,9 @@ def test_llm_status_models_spans_and_explanation(client):
     status = client.get("/api/llm/status").json()
     from blackbox.config import settings
     assert status["openai_model"] == settings().openai_model
-    assert status["pricing_per_million"] == {"input": 0.10, "cached_input": 0.01, "output": 0.50}
+    cfg = settings()
+    assert status["pricing_per_million"] == {"input": cfg.price_input, "cached_input": cfg.price_cached_input,
+                                             "output": cfg.price_output}
     assert "available" in client.get("/api/models/status").json()
     spans = client.get(f"/api/runs/{run_id}/spans").json()["spans"]
     assert len(spans) == 11

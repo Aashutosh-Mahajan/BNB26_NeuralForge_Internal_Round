@@ -13,12 +13,21 @@ from .agent.tasks import parameters, task_id, gold_answer, verify
 from .agent.tools import backup_currency_rate, parse_time
 from .config import settings
 from .injector.catalog import FAULT_CATALOG, inject_output
-from .llm.client import BaseLLM, SandboxLLM, get_llm
+from .llm.client import BaseLLM, ChatLLM, SandboxLLM, get_llm
 from .replay.statistics import wilson_interval
-from .storage import Store, canonical, content_key
+from .storage import Store, canonical, content_key, redact
+from .verifier import acceptance_checks
 
 logger = logging.getLogger(__name__)
 PATCH_FIELDS = {"output", "prompt", "model", "temperature"}
+MAX_ATTEMPTS = 3                       # one call plus two bounded retries for transient tool errors
+VOLATILE_NODES = {"currency_rate", "doc_search", "schema_lookup"}   # data that changes over time
+TOOL_EFFECTS = {"currency_rate": "read_only", "schema_lookup": "read_only", "doc_search": "read_only",
+                "line_items": "read_only", "formula_search": "read_only", "policy_reference": "read_only",
+                "convert_currency": "read_only", "sql_query": "read_only", "extract_policy": "read_only",
+                "subtotal": "read_only", "memory": "sandboxed_write", "date_util": "read_only",
+                "calculator": "read_only"}
+SCHEMA_VERSION = 2
 _COPY_FIELDS = ("tokens_in", "tokens_out", "cached_in", "reasoning", "cost_usd", "latency_ms", "model",
                 "temperature", "seed", "prompt", "provider", "tokens_estimated", "llm_call")
 
@@ -29,6 +38,24 @@ def _now():
 
 def _id():
     return "R-" + uuid.uuid4().hex[:16]
+
+
+_REPLAY_LLMS: dict = {}
+
+
+def _available_llm(provider: str, model: str) -> BaseLLM:
+    try:
+        if provider == "ollama":
+            import json as _json
+            import urllib.request
+            with urllib.request.urlopen(settings().ollama_base_url.rstrip("/") + "/api/tags", timeout=2) as response:
+                names = {m["name"] for m in _json.load(response).get("models", [])}
+            if model not in names and f"{model}:latest" not in names:
+                raise RuntimeError(f"Ollama model {model} is not pulled")
+        return ChatLLM(provider, model=model or None)
+    except Exception as exc:  # Unavailable: replay offline rather than on a different paid model.
+        logger.warning("Replaying %s:%s on the offline sandbox: %s", provider, model, exc)
+        return SandboxLLM(0.0)
 
 
 def resolve_llm(llm: BaseLLM | str | None = None) -> tuple[BaseLLM, str | None]:
@@ -49,7 +76,10 @@ class Engine:
 
     # ------------------------------------------------------------------ runs
     def run(self, prompt, task_family="finance", params=None, on_step=None, run_id=None, *,
-            expose_params=True, seed=None, llm: BaseLLM | None = None, extra=None):
+            expose_params=True, seed=None, llm: BaseLLM | None = None, extra=None,
+            live_recovery: bool = False, faults: dict | None = None, max_recovery_attempts: int = 2):
+        """live_recovery: validate each step as it finishes and repair before dependants run.
+        faults: {step_id: fault_type} planted during execution (evaluation and demos only)."""
         if not isinstance(prompt, str) or not prompt.strip():
             raise ValueError("A non-empty task prompt is required")
         if params is not None and not isinstance(params, dict):
@@ -74,7 +104,10 @@ class Engine:
                              seed=settings().seed if seed is None else seed)
         run["context"] = context
         run.update(extra or {})
-        return self._execute(run, llm=llm, on_step=on_step)
+        if live_recovery:
+            run["live_recovery"] = {"enabled": True, "max_attempts": max_recovery_attempts}
+        return self._execute(run, llm=llm, on_step=on_step, live=live_recovery, faults=faults,
+                             max_recovery_attempts=max_recovery_attempts)
 
     def _metadata(self, identity, prompt, family, params, frozen_at, parent=None, llm=None, seed=7):
         try:
@@ -92,6 +125,7 @@ class Engine:
             "steps": [], "total_tokens": 0, "billed_tokens": 0, "cost_usd": 0.0, "total_time": 0,
             "label_step": None, "fault_type": None, "label_method": None,
             "parent_run_id": parent, "llm_provider": llm.provider, "model": llm.model, "seed": seed,
+            "schema_version": SCHEMA_VERSION, "adapter": "builtin",
             "execution_mode": "offline" if llm.provider == "sandbox" else "live-llm",
             "stochastic": llm.stochastic,
         }
@@ -108,8 +142,14 @@ class Engine:
         return inputs
 
     def _execute(self, run, original=None, from_step=None, patch=None, on_step=None, require_failure=False,
-                 llm=None, variant=0, purpose="agent"):
+                 llm=None, variant=0, purpose="agent", mode="recorded", live=False, faults=None,
+                 max_recovery_attempts=2):
+        """mode: "recorded" reuses recorded/cached responses for unchanged inputs (isolates the change);
+        "fresh" re-executes every step from the fork point without the cache (current conditions)."""
         llm = llm or self.llm
+        fresh = mode == "fresh"
+        ttl = float(__import__("os").environ.get("CACHE_TTL_SECONDS", "86400"))
+        overhead = {"ms": 0.0}
         start = time.perf_counter()
         nodes = specification(run["task_family"])
         saved_checkpoints = []
@@ -135,33 +175,52 @@ class Engine:
             old = original["steps"][index - 1] if original else None
             stamp = time.perf_counter()
             cache_hit, actual, meta = False, False, {"llm_call": is_llm}
+            attempts = []
             if old is not None and index < from_step:
                 output, action = deepcopy(old["output"]), "checkpoint"
             elif old is not None and index == from_step and "output" in patch:
                 output, action = deepcopy(patch["output"]), "patched"
-            elif old is not None and index != from_step and canonical(inputs) == canonical(old["input"]):
+            elif old is not None and index != from_step and not fresh and canonical(inputs) == canonical(old["input"]):
                 output, action = deepcopy(old["output"]), "reused"
             else:
-                cached = self.store.get_cached(cache_key) if not node_overrides else None
+                cached = (None if node_overrides or fresh else
+                          self.store.get_cached(cache_key, ttl if name in VOLATILE_NODES else None))
                 cache_hit = cached is not None
                 action = "rerun" if original is not None else "executed"
                 if cache_hit:
                     output, meta = cached.get("output"), {**cached.get("meta", {}), "cache_hit": True}
                 else:
                     actual = True
-                    ctx = NodeContext(llm=llm, seed=run["seed"], variant=variant, run_id=run["run_id"],
-                                      purpose=purpose, overrides=node_overrides)
-                    try:
-                        output, meta = execute(index, run["task_family"], inputs, ctx)
-                        canonical(output)
-                    except (ArithmeticError, AttributeError, KeyError, IndexError, TypeError, ValueError,
-                            RuntimeError, TimeoutError) as exc:
-                        output = {"error": str(exc), "error_type": type(exc).__name__}
-                        meta = {"llm_call": is_llm, "sim_noise": isinstance(exc, TimeoutError)}
+                    for attempt in range(1, MAX_ATTEMPTS + 1):
+                        ctx = NodeContext(llm=llm, seed=run["seed"], variant=variant, run_id=run["run_id"],
+                                          purpose=purpose, overrides=node_overrides, attempt=attempt)
+                        try:
+                            output, meta = execute(index, run["task_family"], inputs, ctx)
+                            canonical(output)
+                        except (ArithmeticError, AttributeError, KeyError, IndexError, TypeError, ValueError,
+                                RuntimeError, TimeoutError) as exc:
+                            output = {"error": str(exc), "error_type": type(exc).__name__}
+                            meta = {"llm_call": is_llm, "sim_noise": isinstance(exc, TimeoutError)}
+                            # Only transient failures are retried, and only for read-only tools.
+                            if isinstance(exc, TimeoutError) and TOOL_EFFECTS.get(name) == "read_only" and attempt < MAX_ATTEMPTS:
+                                attempts.append({"attempt": attempt, "error": str(exc)})
+                                continue
+                        break
                     if not output.get("error") if isinstance(output, dict) else True:
                         # Only clean, unpatched responses enter the content-addressed cache.
                         if not node_overrides:
                             self.store.cache_output(cache_key, {"output": output, "meta": meta})
+            recovery, planted = None, None
+            if original is None and faults and index in faults:
+                planted = faults[index]
+                output = inject_output(run, {"node_type": kind, "node_name": name, "output": output}, planted)
+            if original is None and live:
+                from .live import recover
+                probe = {"step_id": index, "node_name": name, "node_type": kind, "input": inputs,
+                         "output": output, "parent_step_ids": parents}
+                repaired, recovery = recover(self, run, probe, llm, max_recovery_attempts)
+                if repaired is not None:
+                    output = repaired
             latency = (time.perf_counter() - stamp) * 1000 if actual else 0.0
             before = deepcopy(state["value"])
             state["value"][name] = deepcopy(output)
@@ -184,11 +243,12 @@ class Engine:
                 "tokens_in": int(meta.get("tokens_in", 0)), "tokens_out": int(meta.get("tokens_out", 0)),
                 "cached_in": int(meta.get("cached_in", 0)), "reasoning": int(meta.get("reasoning", 0)),
                 "cost_usd": float(meta.get("cost_usd", 0.0)), "tokens_estimated": bool(meta.get("estimated", False)),
-                "latency_ms": round(latency, 4), "retries": 0,
+                "latency_ms": round(latency, 4), "retries": len(attempts), "attempt_errors": attempts,
+                "effect": "llm_call" if is_llm else TOOL_EFFECTS.get(name, "unknown"),
                 "tool_error": bool(output_dict.get("error")),
                 "as_of": output_dict.get("as_of") if isinstance(output_dict.get("as_of"), str) else None,
                 "action": action, "cache_hit": cache_hit, "actual_execution": actual,
-                "sim_noise": bool(meta.get("sim_noise")),
+                "sim_noise": bool(meta.get("sim_noise")), "planted_fault": planted, "recovery": recovery,
                 "retrieved_doc_ids": [d.get("id") for d in documents if isinstance(d, dict)],
                 "retrieval_scores": scores,
             }
@@ -200,13 +260,19 @@ class Engine:
             billed = actual and not cache_hit
             step["billed_tokens"] = (step["tokens_in"] + step["tokens_out"]) if billed and is_llm else 0
             step["billed_cost_usd"] = step["cost_usd"] if billed else 0.0
+            step["input"] = redact(step["input"])
+            if step.get("prompt"):
+                step["prompt"] = redact(step["prompt"])
             run["steps"].append(step)
             saved_checkpoints.append((checkpoint, index, deepcopy(state["value"])))
+            recording = time.perf_counter()
             if not require_failure:
                 self.store.save_checkpoint(checkpoint, run["run_id"], index, state["value"])
                 self.store.save_run(run)
                 if on_step:
                     on_step(deepcopy(step))
+            step["record_ms"] = round((time.perf_counter() - recording) * 1000, 3)
+            overhead["ms"] += step["record_ms"]
             return output
 
         if self.use_langgraph:
@@ -231,6 +297,7 @@ class Engine:
         run["billed_tokens"] = sum(s["billed_tokens"] for s in run["steps"])
         run["cost_usd"] = round(sum(s["billed_cost_usd"] for s in run["steps"]), 8)
         run["tokens_estimated"] = any(s.get("tokens_estimated") for s in run["steps"])
+        run["acceptance"] = acceptance_checks(run)
         if require_failure:
             if run["success"]:
                 raise ValueError("This intervention does not change the outcome; no failed run was retained")
@@ -238,6 +305,13 @@ class Engine:
                 self.store.save_checkpoint(checkpoint, run["run_id"], index, checkpoint_state)
         run["total_time"] = round((time.perf_counter() - start) * 1000, 3)
         run["total_time_unit"] = "ms"
+        run["recording_overhead_ms"] = round(overhead["ms"], 3)
+        if live:
+            events = [s["recovery"] for s in run["steps"] if s.get("recovery")]
+            run["live_recovery"].update(interruptions=len(events), recovered=sum(e["recovered"] for e in events),
+                                        escalated=sum(bool(e.get("escalated")) for e in events))
+        run["node_time_ms"] = round(sum(s.get("latency_ms", 0) for s in run["steps"]), 3)
+        run["replay_mode"] = mode if original is not None else None
         self.store.save_run(run)
         try:
             from .recorder.otel import export_run
@@ -266,17 +340,24 @@ class Engine:
         return run
 
     def _llm_for(self, run):
-        """Replays use the provider that produced the run when it is available."""
+        """Replays use the provider *and model* that produced the run. If that model is not
+        available here (no key, Ollama down, model not pulled), the offline sandbox is used."""
         provider = run.get("llm_provider", "sandbox")
         if provider == "deterministic-sandbox":
             provider = "sandbox"
-        if provider == self.llm.provider and (provider != "sandbox" or run.get("model") == self.llm.model):
-            return self.llm
+        model = str(run.get("model") or "")
         if provider == "sandbox":
-            model = str(run.get("model") or "")
-            noise = float(model.split("noise")[1]) if "noise" in model else 0.0
-            return SandboxLLM(noise)
-        llm, _ = resolve_llm(provider)
+            if self.llm.provider == "sandbox" and self.llm.model == model:
+                return self.llm
+            return SandboxLLM(float(model.split("noise")[1]) if "noise" in model else 0.0)
+        if self.llm.provider == provider and self.llm.model == model:
+            return self.llm
+        key = (provider, model)
+        if key in _REPLAY_LLMS:
+            return _REPLAY_LLMS[key]
+        llm = _available_llm(provider, model)
+        if llm.provider == provider:  # Only real providers are cached; fallbacks are re-checked.
+            _REPLAY_LLMS[key] = llm
         return llm
 
     def inject(self, run_id, step_id, fault_type):
@@ -313,7 +394,9 @@ class Engine:
         if "output" in patch and canonical(patch["output"]) == canonical(step["output"]):
             raise ValueError("Patch output is identical to the selected step; no intervention was made")
 
-    def replay(self, run_id, from_step, patch, k=5, purpose="replay", persist=True):
+    def replay(self, run_id, from_step, patch, k=5, purpose="replay", persist=True, mode="recorded"):
+        if mode not in ("recorded", "fresh"):
+            raise ValueError("mode must be 'recorded' or 'fresh'")
         original = self.store.get_run(run_id)
         step = self._step(original, from_step)
         if isinstance(k, bool) or not isinstance(k, int) or not 1 <= k <= 20:
@@ -325,7 +408,7 @@ class Engine:
             run = self._fork(original, llm)
             run["replay"] = {"from_step": from_step, "patch": deepcopy(patch), "variant": number + 1,
                              "deterministic": not llm.stochastic}
-            result = self._execute(run, original, from_step, patch, llm=llm, variant=number, purpose=purpose)
+            result = self._execute(run, original, from_step, patch, llm=llm, variant=number, purpose=purpose, mode=mode)
             replay_runs.append(result)
             variants.append({"run_id": result["run_id"], "success": result["success"], "status": result["status"],
                              "final_answer": result["final_answer"], "tokens": result["billed_tokens"],
@@ -374,66 +457,97 @@ class Engine:
                              "The original run already passed." if original["success"] else
                              "Fewer than half of the variants passed."),
             "variants": variants, "frozen_at": original["frozen_at"], "provider": llm.provider, "model": llm.model,
+            "mode": mode, "cache_served_steps": [s["step_id"] for s in first["steps"] if s.get("cache_hit")],
         }
 
-    # ------------------------------------------------------------ fix suggester
-    def _clean_output(self, run, step_id):
-        step = run["steps"][step_id - 1]
-        llm = self._llm_for(run)
-        ctx = NodeContext(llm=llm, seed=run.get("seed", 7), variant=101, run_id=run["run_id"], purpose="fix")
-        output, _ = execute(step_id, run["task_family"], step["input"], ctx)
-        return output
+    # ------------------------------------------------------------ alternatives
+    def _successes(self, successful_runs=None):
+        return successful_runs if successful_runs is not None else [
+            r for r in self.store.list_runs(limit=2000) if r.get("success")]
+
+    def alternatives(self, run_id, step_id, successful_runs=None, allow_billed=False):
+        """Candidate repair strategies for a step (suggested, not yet tested)."""
+        from .strategies import candidates
+        run = self.store.get_run(run_id)
+        self._step(run, step_id)
+        return {"run_id": run_id, "step_id": step_id, "frozen_at": run["frozen_at"],
+                "candidates": candidates(self, run, step_id, self._successes(successful_runs), allow_billed),
+                "note": "Candidates are hypotheses until tested in a replay branch."}
 
     def suggest_fix(self, run_id, step_id, successful_runs=None):
-        run = self.store.get_run(run_id)
-        step = self._step(run, step_id)
-        options = []
-
-        def add(option):
-            if canonical(option["patch"]["output"]) != canonical(step["output"]) and not any(
-                    canonical(o["patch"]["output"]) == canonical(option["patch"]["output"]) for o in options):
-                options.append(option)
-
-        try:
-            add({"id": "retry", "label": "Retry the node at the original (frozen) time",
-                 "source": "re-execution with a fresh sample" if step["node_name"] in LLM_NODES else "tool retry",
-                 "patch": {"output": self._clean_output(run, step_id)}})
-        except (ArithmeticError, AttributeError, KeyError, IndexError, TypeError, ValueError, RuntimeError, TimeoutError):
-            pass
-        output = step["output"] if isinstance(step["output"], dict) else {}
-        if step["node_name"] == "currency_rate":
-            route = step["input"].get("dependencies", {}).get("router") if isinstance(step.get("input"), dict) else None
-            args = route.get("arguments") if isinstance(route, dict) else None
-            args = args if isinstance(args, dict) else {}
-            try:
-                backup = backup_currency_rate(args.get("base_currency", "INR"), args.get("target_currency", "USD"), run["frozen_at"])
-                add({"id": "backup", "label": "Use the backup FX source", "source": backup["source"], "patch": {"output": backup}})
-            except (KeyError, ValueError):
-                pass
-        population = successful_runs if successful_runs is not None else [r for r in self.store.list_runs(limit=2000) if r.get("success")]
-        same_node = [r["steps"][step_id - 1]["output"] for r in population
-                     if r.get("task_family") == run["task_family"] and len(r.get("steps", [])) >= step_id
-                     and isinstance(r["steps"][step_id - 1].get("output"), dict)]
-        numeric_keys = [k for k, v in output.items() if isinstance(v, (int, float)) and not isinstance(v, bool)]
-        if same_node and numeric_keys and step["node_name"] in ("currency_rate", "formula_search", "policy_reference"):
-            patched = deepcopy(output)
-            for key in numeric_keys:
-                values = [o[key] for o in same_node if isinstance(o.get(key), (int, float)) and not isinstance(o.get(key), bool)]
-                if values:
-                    patched[key] = statistics.median(values)
-            if "as_of" in patched:
-                patched["as_of"] = run["frozen_at"]
-            if "version" in patched:
-                patched["version"] = "current"
-            add({"id": "historical", "label": "Use the rolling median of successful runs", "source": f"{len(same_node)} successful runs",
-                 "patch": {"output": patched}})
-        for candidate in population:
-            if candidate.get("task_id") == run["task_id"] and len(candidate.get("steps", [])) >= step_id:
-                add({"id": "historical_match", "label": "Use the matching successful run's output",
-                     "source_run_id": candidate["run_id"], "patch": {"output": deepcopy(candidate["steps"][step_id - 1]["output"])}})
-                break
-        return {"run_id": run_id, "step_id": step_id, "options": options, "frozen_at": run["frozen_at"],
+        """Executable candidates as replay patches (compatibility view of `alternatives`)."""
+        result = self.alternatives(run_id, step_id, successful_runs)
+        options = [{"id": c["id"], "label": c["label"], "kind": c["kind"], "rationale": c["rationale"],
+                    "source": c["provenance"].get("executed") or c["provenance"].get("source")
+                    or c["provenance"].get("source_run") or c["provenance"].get("model"),
+                    "provenance": c["provenance"], "patch": c["patch"]}
+                   for c in result["candidates"] if c["status"] == "suggested" and c["patch"]]
+        return {"run_id": run_id, "step_id": step_id, "options": options, "frozen_at": result["frozen_at"],
                 "note": "Candidate fixes are hypotheses; replay verifies the outcome. You can also edit the patch by hand."}
+
+    def test_alternatives(self, run_id, step_id, strategy_ids=None, k=3, successful_runs=None, allow_billed=False,
+                          mode="recorded"):
+        """Run several candidates from the same checkpoint and compare their verified outcomes."""
+        original = self.store.get_run(run_id)
+        listed = self.alternatives(run_id, step_id, successful_runs, allow_billed)["candidates"]
+        chosen = [c for c in listed if strategy_ids is None or c["id"] in strategy_ids]
+        branches = []
+        for card in chosen:
+            entry = {key: card[key] for key in ("id", "label", "kind", "rationale", "preconditions", "provenance",
+                                                "expected_recompute", "unavailable_reason")}
+            # Explicitly requested candidates with only a soft (policy) concern are tested so
+            # the acceptance checks can confirm or reject the concern.
+            testable = card["status"] == "suggested" or (card["status"] == "needs_review" and strategy_ids is not None)
+            if not testable or not card["patch"]:
+                entry.update(status=card["status"] if card["status"] != "suggested" else "unavailable", tested=False)
+                branches.append(entry)
+                continue
+            started = time.perf_counter()
+            result = self.replay(run_id, step_id, card["patch"], k=k, purpose="alternative", mode=mode)
+            branch_runs = [self.store.get_run(rid) for rid in result["replay_run_ids"]]
+            outcomes = [b.get("acceptance", {}).get("outcome") for b in branch_runs]
+            passed = sum(o == "passed" for o in outcomes)
+            status = ("passed" if passed / k >= 0.5 else
+                      "rejected" if passed == 0 and "unknown" not in outcomes else "inconclusive")
+            first = branch_runs[0]
+            checks = first.get("acceptance", {}).get("checks", [])
+            entry.update(status=status, tested=True, passed=passed, k=k, branch_run_id=first["run_id"],
+                         branch_run_ids=result["replay_run_ids"], final_answer=first.get("final_answer"),
+                         acceptance=first.get("acceptance"),
+                         failed_checks=[c["label"] for c in checks if c["status"] == "fail"],
+                         reused_steps=result["reused_steps"], checkpoint_steps=result["checkpoint_steps"],
+                         rerun_steps=result["rerun_steps"],
+                         cache_hit_steps=[x["step_id"] for x in first["steps"] if x.get("cache_hit")],
+                         executed_steps=result["actual_executed_steps"],
+                         billed_tokens=sum(b["billed_tokens"] for b in branch_runs),
+                         cost_usd=round(sum(b.get("cost_usd", 0) for b in branch_runs), 8),
+                         wall_ms=round((time.perf_counter() - started) * 1000, 1),
+                         independent_trials=result["independent_trials"], ci95=result["ci95"])
+            branches.append(entry)
+        tested = [b for b in branches if b.get("tested")]
+        any_pass = any(b["status"] == "passed" for b in tested)
+        experiment = {
+            "experiment_id": "X-" + uuid.uuid4().hex[:12], "run_id": run_id, "step_id": step_id, "created_at": _now(),
+            "mode": mode,
+            "original": {"run_id": run_id, "final_answer": original.get("final_answer"),
+                         "acceptance": original.get("acceptance") or acceptance_checks(original)},
+            "branches": branches,
+            "totals": {"candidates": len(branches), "tested": len(tested),
+                       "passed": sum(b["status"] == "passed" for b in tested),
+                       "rejected": sum(b["status"] == "rejected" for b in tested),
+                       "inconclusive": sum(b["status"] == "inconclusive" for b in tested),
+                       "unavailable": sum(b["status"] in ("unavailable", "needs_review") for b in branches),
+                       "billed_tokens": sum(b.get("billed_tokens", 0) for b in tested),
+                       "cost_usd": round(sum(b.get("cost_usd", 0) for b in tested), 8),
+                       "wall_ms": round(sum(b.get("wall_ms", 0) for b in tested), 1)},
+            "verdict": "supported" if any_pass else "not supported" if tested else "untested",
+            "verdict_text": ("At least one alternative at this step passed every acceptance check. This supports the "
+                             "step as the origin; it is a tested hypothesis, not proof of a unique cause."
+                             if any_pass else "No tested alternative at this step passed the acceptance checks."
+                             if tested else "No executable alternative was available."),
+        }
+        self.store.save_experiment(experiment)
+        return experiment
 
 
 __all__ = ["Engine", "FAULT_CATALOG", "resolve_llm"]

@@ -260,8 +260,10 @@ class LLMProviderTests(unittest.TestCase):
         from blackbox.config import settings
         from blackbox.llm.usage import BudgetExceeded, UsageLedger
         cfg = settings()
-        self.assertAlmostEqual(cfg.price_usd(1_000_000, 0), 0.10)
-        self.assertAlmostEqual(cfg.price_usd(1_000_000, 1_000_000, cached_in=500_000), 0.05 + 0.005 + 0.50)
+        # Prices come from .env; check the formula, not one model's price list.
+        self.assertAlmostEqual(cfg.price_usd(1_000_000, 0), cfg.price_input)
+        self.assertAlmostEqual(cfg.price_usd(1_000_000, 1_000_000, cached_in=500_000),
+                               0.5 * cfg.price_input + 0.5 * cfg.price_cached_input + cfg.price_output)
         with tempfile.TemporaryDirectory() as folder:
             ledger = UsageLedger(folder + "/usage.db")
             ledger.record(provider="openai", model="gpt-6-luna", purpose="agent", run_id="x", node="planner",
@@ -310,7 +312,7 @@ class TelemetryTests(unittest.TestCase):
         graph.add_edge("planner", "calculator_tool")
         graph.add_edge("calculator_tool", END)
         store = Store(":memory:")
-        run = wrap(graph.compile(), store).invoke({"question": "2+2"}, gold_answer=4)
+        run = wrap(graph.compile(), store, check=lambda state: state.get("answer") == 4).invoke({"question": "2+2"})
         self.assertEqual(run["status"], "PASSED")
         self.assertEqual([s["node_name"] for s in run["steps"]], ["planner", "calculator_tool"])
         self.assertEqual(store.get_checkpoint(run["steps"][1]["checkpoint_id"])["answer"], 4)

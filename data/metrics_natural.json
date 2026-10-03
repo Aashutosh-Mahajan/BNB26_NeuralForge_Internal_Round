@@ -1,0 +1,170 @@
+{
+  "generated_at": "2026-10-03T19:24:53.346307+00:00",
+  "model_version": "c42ff0fbf179",
+  "agent_models": [
+    "qwen2.5:3b"
+  ],
+  "runs": 160,
+  "natural_failures": 107,
+  "counterfactually_labelled": 88,
+  "failure_rate": 0.66875,
+  "label_steps": {
+    "router": 87,
+    "reasoner": 1
+  },
+  "top1": 0.9886363636363636,
+  "top3": 1.0,
+  "mrr": 0.9943181818181818,
+  "auroc": 0.9000176335743255,
+  "report": {
+    "count": 88,
+    "top1": 0.9886363636363636,
+    "top3": 1.0,
+    "mrr": 0.9943181818181818,
+    "within_one": 1.0,
+    "total_runs": 160,
+    "failed_runs": 107,
+    "passed_runs": 53,
+    "auroc": 0.9000176335743255,
+    "f1": 0.9596412556053812,
+    "models": {
+      "m1": {
+        "count": 88,
+        "top1": 0.9659090909090909,
+        "top3": 1.0,
+        "mrr": 0.9829545454545454,
+        "within_one": 1.0
+      },
+      "m2": {
+        "count": 88,
+        "top1": 0.9090909090909091,
+        "top3": 0.9886363636363636,
+        "mrr": 0.9507575757575758,
+        "within_one": 1.0
+      },
+      "m3": {
+        "count": 88,
+        "top1": 0.32954545454545453,
+        "top3": 0.9659090909090909,
+        "mrr": 0.6551136363636364,
+        "within_one": 0.5795454545454546
+      },
+      "ensemble": {
+        "count": 88,
+        "top1": 0.9886363636363636,
+        "top3": 1.0,
+        "mrr": 0.9943181818181818,
+        "within_one": 1.0
+      }
+    },
+    "baselines": {
+      "random": {
+        "count": 88,
+        "top1": 0.056818181818181816,
+        "top3": 0.23863636363636365,
+        "mrr": 0.2442956349206349,
+        "within_one": 0.23863636363636365
+      },
+      "last_step": {
+        "count": 88,
+        "top1": 0.0,
+        "top3": 0.011363636363636364,
+        "mrr": 0.11553030303030304,
+        "within_one": 0.011363636363636364
+      },
+      "first_tool_error": {
+        "count": 88,
+        "top1": 0.0,
+        "top3": 0.011363636363636364,
+        "mrr": 0.11553030303030304,
+        "within_one": 0.6136363636363636
+      },
+      "heuristic_rules": {
+        "count": 88,
+        "top1": 0.9204545454545454,
+        "top3": 0.9886363636363636,
+        "mrr": 0.9556818181818181,
+        "within_one": 1.0
+      }
+    },
+    "per_fault": {
+      "counterfactual": {
+        "count": 88,
+        "top1": 0.9886363636363636,
+        "top3": 1.0,
+        "mrr": 0.9943181818181818,
+        "within_one": 1.0
+      }
+    },
+    "per_family": {
+      "math": {
+        "count": 21,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      "doc_qa": {
+        "count": 30,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      "sql": {
+        "count": 1,
+        "top1": 0.0,
+        "top3": 1.0,
+        "mrr": 0.5,
+        "within_one": 1.0
+      },
+      "finance": {
+        "count": 36,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      }
+    },
+    "heatmap": [
+      {
+        "fault": "natural",
+        "family": "doc_qa",
+        "count": 30,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "natural",
+        "family": "finance",
+        "count": 36,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "natural",
+        "family": "math",
+        "count": 21,
+        "top1": 1.0,
+        "top3": 1.0,
+        "mrr": 1.0,
+        "within_one": 1.0
+      },
+      {
+        "fault": "natural",
+        "family": "sql",
+        "count": 1,
+        "top1": 0.0,
+        "top3": 1.0,
+        "mrr": 0.5,
+        "within_one": 1.0
+      }
+    ]
+  },
+  "cost_usd": 0.0,
+  "note": "Natural failures made by the agent model itself (nothing injected), labelled by counterfactual replay with a careful-rerun fixer. Scored with the GPT-6 Luna-era models, no retraining."
+}

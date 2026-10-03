@@ -69,10 +69,12 @@ class SandboxLLM(BaseLLM):
     """
     provider = "sandbox"
 
-    def __init__(self, noise: float | None = None):
+    def __init__(self, noise: float | None = None, tool_noise: float | None = None):
         self.noise = settings().sandbox_noise if noise is None else noise
+        # Transient tool timeouts default to a quarter of the LLM mistake rate.
+        self.tool_noise = self.noise * 0.25 if tool_noise is None else tool_noise
         self.model = "rule-based-v2" if not self.noise else f"rule-based-v2-noise{self.noise:g}"
-        self.stochastic = self.noise > 0
+        self.stochastic = self.noise > 0 or self.tool_noise > 0
 
 
 class ChatLLM(BaseLLM):
@@ -106,7 +108,7 @@ class ChatLLM(BaseLLM):
                 kwargs["model_kwargs"] = {"response_format": {"type": "json_object"}}
             return ChatOpenAI(**kwargs)
         from langchain_ollama import ChatOllama
-        return ChatOllama(model=model, base_url=cfg.ollama_base_url, format="json",
+        return ChatOllama(model=model, base_url=cfg.ollama_base_url, format="json", num_ctx=cfg.ollama_num_ctx,
                           temperature=temperature if temperature is not None else 0, seed=seed)
 
     def _invoke(self, system: str, user: str, temperature, seed, model):
@@ -180,6 +182,7 @@ def provider_status() -> dict:
     return {"provider": cfg.provider, "openai_model": cfg.openai_model, "openai_key_configured": cfg.openai_ready,
             "ollama_model": cfg.ollama_model, "reasoning_effort": cfg.reasoning_effort,
             "budget_usd": cfg.budget_usd, "spent_usd": round(ledger.spent("openai"), 6),
+            "budget_start": cfg.budget_start, "spent_toward_budget_usd": round(ledger.spent("openai", cfg.budget_start), 6),
             "pricing_per_million": {"input": cfg.price_input, "cached_input": cfg.price_cached_input,
                                     "output": cfg.price_output},
             "sandbox_noise": cfg.sandbox_noise}

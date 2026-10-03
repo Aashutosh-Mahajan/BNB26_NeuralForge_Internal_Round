@@ -1,7 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, LoaderCircle, Play, Radio } from "lucide-react";
 import { compactJson, familyLabels, money, nodeLabel, post } from "../api";
-import { Empty, Field, PageHead, Panel, StatusBadge, Tape } from "../ui";
+import { Capabilities, Empty, Field, PageHead, Panel, StatusBadge, Tape } from "../ui";
+
+const PLANTS = [
+  ["", "No planted fault"],
+  ["3:stale_data", "Step 3 returns a year-old FX quote (finance)"],
+  ["2:wrong_arguments", "Step 2 passes a wrong value"],
+  ["1:dropped_constraint", "Step 1 drops a task constraint"],
+  ["9:hallucinated_fact", "Step 9 states an invented number"],
+];
+const ADAPTERS = [
+  ["Built-in agent", { record: true, diagnose: true, checkpoint: true, fork: true, resume: true, selective_reuse: true }, "This screen"],
+  ["Any LangGraph graph", { record: true, diagnose: true, checkpoint: true, fork: true, resume: true, selective_reuse: false }, "blackbox.wrap(graph) · examples/expense_agent.py"],
+  ["Claude Code", { record: true, diagnose: true }, "integrations/claude_code_settings.json (http hooks)"],
+  ["Claude / Cursor / Codex as a client", { diagnose: true }, "python -m blackbox.mcp_server (MCP tools)"],
+  ["Devin", {}, "Not supported: its session API does not expose step checkpoints we could verify"],
+];
 
 const EXAMPLES = {
   finance: [
@@ -17,6 +32,8 @@ export default function Live({ llm, onDone, openRun }) {
   const [family, setFamily] = useState("finance");
   const [prompt, setPrompt] = useState(EXAMPLES.finance[0]);
   const [provider, setProvider] = useState("default");
+  const [liveRecovery, setLiveRecovery] = useState(false);
+  const [plant, setPlant] = useState("");
   const [steps, setSteps] = useState([]);
   const [run, setRun] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -31,7 +48,14 @@ export default function Live({ llm, onDone, openRun }) {
     setRun(null);
     setSteps([]);
     try {
-      const r = await post("/runs", { prompt, task_family: family, provider });
+      const [plantStep, plantFault] = plant.split(":");
+      const r = await post("/runs", {
+        prompt,
+        task_family: family,
+        provider,
+        live_recovery: liveRecovery,
+        plant_fault: plant ? { step: Number(plantStep), fault: plantFault } : null,
+      });
       const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/api/runs/" + r.run_id + "/stream");
       socket.current = ws;
       ws.onmessage = (event) => {
@@ -107,6 +131,19 @@ export default function Live({ llm, onDone, openRun }) {
                 ))}
               </div>
             </Field>
+            <Field label="Demo: plant a fault during the run" hint="The fault is hidden from the diagnosis models.">
+              <select value={plant} onChange={(e) => setPlant(e.target.value)} disabled={busy}>
+                {PLANTS.map(([v, l]) => (
+                  <option key={v} value={v} disabled={v.startsWith("3:stale") && family !== "finance"}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <label className="switch">
+              <input type="checkbox" checked={liveRecovery} onChange={(e) => setLiveRecovery(e.target.checked)} disabled={busy} />
+              Live recovery: check each step as it finishes and repair it before dependent steps run
+            </label>
             {error && (
               <div className="note bad" role="alert" style={{ marginBottom: 14 }}>
                 {error}
@@ -125,8 +162,9 @@ export default function Live({ llm, onDone, openRun }) {
               title={busy ? "Recording" : "Recorded"}
               steps={steps}
               placeholders={busy ? Math.max(0, 10 - steps.length) : 0}
-              role={() => "fine"}
-              legend={busy ? null : [["#2f9e64", "Step completed"]]}
+              role={(s) => (s.recovery?.recovered ? "patched" : "recorded")}
+              flag={(s) => (s.recovery?.recovered ? "Recovered" : s.recovery?.escalated ? "Escalated" : null)}
+              legend={[["#6b7a94", "Recorded (not yet checked)"], ...(liveRecovery ? [["#f0a020", "Repaired live"]] : [])]}
             />
           ) : null}
           <section className="panel">
@@ -158,9 +196,14 @@ export default function Live({ llm, onDone, openRun }) {
             </div>
             {run && (
               <div className="panel-body" style={{ borderTop: "1px solid var(--line)" }}>
+                <div className={"note " + (run.status === "PASSED" ? "good" : "bad")} style={{ marginBottom: 12 }}>
+                  <span>
+                    {run.status === "PASSED" ? "Passed its acceptance checks." : "Failed its acceptance checks. Open the investigation to see the leading suspect."}
+                  </span>
+                </div>
                 <p style={{ marginBottom: 12 }}>
                   Answer <strong className="mono">{JSON.stringify(run.final_answer)}</strong>
-                  {run.status === "PASSED" ? " is correct." : ` is wrong (expected ${JSON.stringify(run.gold_answer)}).`}{" "}
+                  {run.status === "PASSED" ? " matches the expected value." : ` (expected ${JSON.stringify(run.gold_answer)}).`}{" "}
                   <span className="muted">
                     {(run.total_tokens || 0).toLocaleString()} tokens{run.tokens_estimated ? " (estimated)" : ""} · {money(run.cost_usd)}
                   </span>
@@ -173,6 +216,16 @@ export default function Live({ llm, onDone, openRun }) {
           </section>
         </div>
       </div>
+      <Panel className="section-gap" title="Which agents Black Box can work with" aside="what each integration really supports">
+        <div className="stack" style={{ gap: 10 }}>
+          {ADAPTERS.map(([name, caps, how]) => (
+            <div key={name}>
+              <Capabilities caps={caps} adapter={name} />
+              <p className="small muted" style={{ marginTop: -10 }}>{how}</p>
+            </div>
+          ))}
+        </div>
+      </Panel>
     </>
   );
 }

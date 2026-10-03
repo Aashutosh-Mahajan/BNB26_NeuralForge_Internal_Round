@@ -16,5 +16,19 @@ artifacts/
 htmlcov/
 *.log
 .cache/
-# Generated datasets, models, metrics, caches and the spend ledger
-data/
+# Generated data stays local, except the final measured results and the trained models (~16 MB).
+data/*
+!data/metrics.json
+!data/metrics_gpt6luna_final.json
+!data/benchmark_whowhen*.json
+!data/metrics_*.json
+!data/hybrid_judge.json
+!data/calibration.json
+!data/cross_provider_sandbox_to_openai.json
+!data/dataset_*.manifest.json
+!data/models/
+data/models/*
+!data/models/*.pt
+!data/models/*.txt
+!data/models/*.npz
+!data/models/ensemble.json

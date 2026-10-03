@@ -129,3 +129,59 @@ def generate_tasks(per_family: int, seed: int = 42) -> list[dict]:
             tasks.append({"family": family, "template_id": f"{family}-t{index:02d}", "split": split,
                           "prompt": prompt, "params": gold, "frozen_at": f"2026-10-{day:02d}T12:00:00+00:00"})
     return tasks
+
+
+# --------------------------------------------------------------------------- harder variants
+# Numbers in words, distractor numbers and conflicting hints. Used for natural-failure
+# experiments with real local models only; the gold answer still comes from the params.
+_WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine",
+          10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen", 14: "fourteen", 15: "fifteen", 16: "sixteen",
+          17: "seventeen", 18: "eighteen", 19: "nineteen", 20: "twenty", 25: "twenty-five", 30: "thirty", 40: "forty"}
+
+
+def _words(n):
+    n = int(n)
+    if n in _WORDS:
+        return _WORDS[n]
+    if n % 1000 == 0 and n // 1000 in _WORDS:
+        return f"{_WORDS[n // 1000]} thousand"
+    return str(n)
+
+
+HARD = {
+    "finance": [
+        lambda p: f"I need the monthly payment, in dollars, on a loan of {_words(p['amount'])} rupees over {_words(p['months'] // 12)} years at {p['annual_rate']} percent a year.",
+        lambda p: f"My bank quoted 15% last month, but the agreed rate is {p['annual_rate']}%. EMI in USD for INR {p['amount']} over {p['months']} months?",
+    ],
+    "math": [
+        lambda p: f"{_words(p['quantity']).capitalize()} {p['item']}s cost {p['unit_price']} dollars apiece; with a {p['discount_pct']} percent discount, what is the total?",
+        lambda p: f"Last time I bought 3 {p['item']}s. This time I need {p['quantity']} at ${p['unit_price']} each, {p['discount_pct']}% off. Total?",
+    ],
+    "sql": [
+        lambda p: f"The 2025 report said 999 units, but what does the database say for {p['metric']} in the {p['region']} region in Q{p['quarter'][1]}?",
+        lambda p: f"Ignoring other regions, give {p['metric']} for {p['region']}ern stores, quarter Q{p['quarter'][1]} only.",
+    ],
+    "doc_qa": [
+        lambda p: f"An old FAQ says 90 days, but under the current policy how many days do I have to {_ACTIONS[p['policy']]} a {p['product']}?",
+        lambda p: f"My friend got 7 extra days last year. Per today's policy, how many days are allowed to {_ACTIONS[p['policy']]} a {p['product']}?",
+    ],
+}
+
+
+def generate_hard_tasks(per_family: int, seed: int = 7) -> list[dict]:
+    rng = random.Random(seed)
+    tasks = []
+    for family, templates in HARD.items():
+        for case in range(per_family):
+            index = case % len(templates)
+            params = sample_params(family, rng)
+            if family == "finance":
+                params["amount"] = rng.choice([10000, 20000, 25000, 40000])
+                params["months"] = rng.choice([12, 24, 36])
+            if family == "math":
+                params["quantity"] = rng.choice([2, 5, 8, 12, 15, 20])
+            prompt = templates[index](params)
+            gold = {key: value for key, value in params.items() if key in DEFAULTS[family]}
+            tasks.append({"family": family, "template_id": f"{family}-hard{index:02d}", "split": "hard",
+                          "prompt": prompt, "params": gold, "frozen_at": f"2026-10-{3 + case % 25:02d}T12:00:00+00:00"})
+    return tasks

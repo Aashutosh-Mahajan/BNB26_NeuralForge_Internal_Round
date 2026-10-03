@@ -14,7 +14,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -43,6 +43,8 @@ class RunRequest(RequestModel):
     task_family: Literal["finance", "sql", "doc_qa", "math"] = "finance"
     params: dict[str, Any] | None = None
     provider: Literal["default", "sandbox", "openai", "ollama"] = "default"
+    live_recovery: bool = False
+    plant_fault: dict[str, Any] | None = None  # {"step": 3, "fault": "stale_data"}: demo of a mid-run failure
 
     @field_validator("prompt")
     @classmethod
@@ -77,10 +79,25 @@ class OutputPatch(RequestModel):
         return dict(self.model_dump(exclude_unset=True))
 
 
+class ExperimentRequest(RequestModel):
+    step: int = Field(ge=1, strict=True)
+    strategies: list[str] | None = None
+    k: int = Field(default=3, ge=1, le=10, strict=True)
+    allow_billed: bool = False
+    mode: Literal["recorded", "fresh"] = "recorded"
+
+
+class ReviewRequest(RequestModel):
+    verdict: Literal["confirmed", "wrong_step", "uncertain"]
+    label_step: int | None = Field(default=None, ge=1)
+    note: str | None = Field(default=None, max_length=1000)
+
+
 class ReplayRequest(RequestModel):
     from_step: int = Field(ge=1, strict=True)
     patch: OutputPatch
     k: int = Field(default=5, ge=1, le=10, strict=True)
+    mode: Literal["recorded", "fresh"] = "recorded"
 
 
 def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = None,
@@ -200,6 +217,12 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
             "math": "Buy 8 items at $12 each with a 10% discount. What is the total?",
         }
         finance_id = None
+        # An older finance run: its 14-day-old quote is what "recent cached quote" finds,
+        # so the demo shows that alternative being tested and rejected by the freshness check.
+        from datetime import timedelta
+        old = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
+        history(application.state.engine.run("Convert INR 80,000 to USD and compute EMI for 24 months at 10%.",
+                                             task_family="finance", params={"frozen_at": old}))
         for family, prompt in examples.items():
             run = application.state.engine.run(prompt, task_family=family)
             history(run)
@@ -218,7 +241,19 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
             if not isinstance(payload, dict):
                 raise ValueError("metrics.json must contain an object")
             # Preserve the evaluator's provenance and measured metrics; never substitute PRD targets.
-            return {"status": "available", **payload}
+            # Later local (zero-cost) experiments live in separate files and are attached read-only.
+            extras = {}
+            for key, name in (("natural_local", "metrics_natural.json"), ("hybrid_judge", "hybrid_judge.json"),
+                              ("whowhen_windows", "benchmark_whowhen_windows.json"), ("extra", "metrics_extra.json"),
+                              ("hard_negatives", "metrics_hardneg.json"), ("heldout_workflow", "metrics_heldout_workflow.json"),
+                              ("live_recovery", "metrics_live.json")):
+                extra = metrics_file.parent / name
+                if extra.is_file():
+                    try:
+                        extras[key] = json.loads(extra.read_text(encoding="utf-8"))
+                    except ValueError:
+                        logger.warning("Unreadable %s", extra)
+            return {"status": "available", **payload, "extras": extras}
         except (OSError, ValueError) as error:
             logger.warning("Unable to load evaluation artifact: %s", error)
             return {**unavailable, "message": "The evaluation artifact cannot be read; regenerate metrics.json."}
@@ -227,10 +262,17 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
         try:
             callback = lambda step: application.state.events.append(run_id, step_event(step))
             engine = engine_for(request.provider)
+            faults = ({int(request.plant_fault["step"]): str(request.plant_fault["fault"])}
+                      if request.plant_fault else None)
             run = await asyncio.to_thread(engine.run, request.prompt,
                                           task_family=request.task_family, params=request.params,
-                                          on_step=callback, run_id=run_id)
+                                          on_step=callback, run_id=run_id, live_recovery=request.live_recovery,
+                                          faults=faults)
             application.state.events.append(run_id, {"type": "complete", "status": run["status"], "run": run})
+            if run["status"] == "FAILED":
+                from blackbox.alerts import maybe_alert
+                diagnosis = await asyncio.to_thread(lambda: diagnoses_for([run], successes())[0])
+                await asyncio.to_thread(maybe_alert, run, diagnosis)
         except Exception:
             logger.exception("Sandbox run %s failed during execution", run_id)
             run = get_run(run_id)
@@ -362,7 +404,7 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
         ready(run_id)
         try:
             result = await asyncio.to_thread(application.state.engine.replay, run_id,
-                request.from_step, request.patch.as_patch(), request.k)
+                request.from_step, request.patch.as_patch(), request.k, "replay", True, request.mode)
         except (KeyError, ValueError, TypeError) as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         for replay_id in result.get("replay_run_ids", [result.get("new_run_id")]):
@@ -375,6 +417,120 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
         run = detailed(ready(run_id))
         from blackbox.explain.narrator import narrate
         return await asyncio.to_thread(narrate, run, run["diagnosis"], mode)
+
+    @router.get("/runs/{run_id}/alternatives")
+    def alternatives(run_id: str, step: int | None = Query(default=None, ge=1), allow_billed: bool = False):
+        run = ready(run_id)
+        chosen = step or ((detailed(run).get("root_cause") or {}).get("step")) or 1
+        try:
+            return application.state.engine.alternatives(run_id, chosen, successes(), allow_billed)
+        except (KeyError, ValueError, TypeError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @router.post("/runs/{run_id}/experiments")
+    async def run_experiments(run_id: str, request: ExperimentRequest):
+        ready(run_id)
+        try:
+            result = await asyncio.to_thread(application.state.engine.test_alternatives, run_id, request.step,
+                                             request.strategies, request.k, successes(), request.allow_billed,
+                                             request.mode)
+        except (KeyError, ValueError, TypeError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        for branch in result["branches"]:
+            for replay_id in branch.get("branch_run_ids", []):
+                history(get_run(replay_id))
+        return result
+
+    @router.get("/runs/{run_id}/experiments")
+    def list_experiments(run_id: str):
+        get_run(run_id)
+        return {"run_id": run_id, "experiments": application.state.store.list_experiments(run_id)}
+
+    @router.get("/runs/{run_id}/report", response_class=PlainTextResponse)
+    def report(run_id: str):
+        run = ready(run_id)
+        from blackbox.report import incident_report
+        full = detailed(run)
+        return PlainTextResponse(incident_report(run, full.get("diagnosis"), application.state.store.list_experiments(run_id)),
+                                 media_type="text/markdown",
+                                 headers={"Content-Disposition": f'attachment; filename="incident-{run_id}.md"'})
+
+    @router.get("/runs/{run_id}/memory")
+    def incident_memory(run_id: str, step: int | None = Query(default=None, ge=1)):
+        run = ready(run_id)
+        from blackbox.memory import similar_incidents
+        chosen = step or ((detailed(run).get("root_cause") or {}).get("step")) or 1
+        return similar_incidents(application.state.store, run, chosen)
+
+    @router.post("/runs/{run_id}/review")
+    def review(run_id: str, request: ReviewRequest):
+        run = ready(run_id)
+        if run.get("status") != "FAILED":
+            raise HTTPException(status_code=422, detail="Only failed runs can be reviewed")
+        diagnosis = detailed(run).get("root_cause") or {}
+        label = diagnosis.get("step") if request.verdict == "confirmed" else request.label_step
+        if request.verdict == "wrong_step" and not label:
+            raise HTTPException(status_code=422, detail="Give the correct step when the suspect is wrong")
+        run["review"] = {"verdict": request.verdict, "label_step": label if request.verdict != "uncertain" else None,
+                         "suspect_step": diagnosis.get("step"), "note": request.note,
+                         "reviewed_at": datetime.now(timezone.utc).isoformat(), "queued_for_training": request.verdict != "uncertain"}
+        application.state.store.save_run(run)
+        return run["review"]
+
+    @router.post("/ingest/claude-code")
+    def ingest_claude_code(event: dict[str, Any]):
+        """Record Claude Code hook events (PostToolUse, PostToolUseFailure, UserPromptSubmit, Stop)."""
+        from blackbox.storage import redact
+        session = str(event.get("session_id") or "unknown")[:64]
+        run_id = "CC-" + session
+        store = application.state.store
+        try:
+            run = store.get_run(run_id)
+        except KeyError:
+            now = datetime.now(timezone.utc).isoformat()
+            run = {"run_id": run_id, "task_id": "claude-code", "task_family": "claude-code", "template_id": "claude-code",
+                   "prompt": "Claude Code session " + session, "params": {}, "status": "RECORDED", "success": None,
+                   "created_at": now, "frozen_at": now, "final_answer": None, "gold_answer": None, "steps": [],
+                   "llm_provider": "external", "model": "claude-code", "adapter": "claude-code-hooks",
+                   "capabilities": {"record": True, "diagnose": True, "checkpoint": False, "fork": False,
+                                    "resume": False, "selective_reuse": False},
+                   "total_tokens": 0, "billed_tokens": 0, "cost_usd": 0.0}
+        name = event.get("hook_event_name", "")
+        if name == "UserPromptSubmit" and event.get("prompt"):
+            run["prompt"] = str(event["prompt"])[:4000]
+        elif name in ("PostToolUse", "PostToolUseFailure"):
+            response = event.get("tool_response")
+            error = event.get("error") or (response.get("error") if isinstance(response, dict) else None)
+            failed = name == "PostToolUseFailure" or bool(error)
+            index = len(run["steps"]) + 1
+            output = ({"error": str(error or "tool failed")[:2000], "error_type": event.get("error_type")}
+                      if failed else redact(response))
+            run["steps"].append({"run_id": run_id, "step_id": index, "node_name": str(event.get("tool_name", "tool")),
+                                 "node_type": "tool", "parent_step_ids": [index - 1] if index > 1 else [],
+                                 "input": redact(event.get("tool_input")), "output": output, "state_before": {}, "state_after": {},
+                                 "state_diff": {}, "checkpoint_id": None, "tool_error": failed, "latency_ms": 0,
+                                 "tokens_in": 0, "tokens_out": 0, "retries": 0, "action": "executed", "llm_call": False})
+            if failed:
+                run["status"], run["success"] = "FAILED", False
+        elif name in ("Stop", "SessionEnd") and run["status"] == "RECORDED":
+            run["success"] = None
+        failures = [s["step_id"] for s in run["steps"] if s.get("tool_error")]
+        run["acceptance"] = {"outcome": "failed" if failures else "unknown",
+                             "checks": [{"id": "no_errors", "label": "No tool call failed", "status": "fail" if failures else "unknown",
+                                         "detail": f"Failed tool calls at steps {failures}." if failures else "No independent check for this session."}],
+                             "verifier": "tool-failure signal only"}
+        store.save_run(run)
+        return {"run_id": run_id, "steps": len(run["steps"]), "status": run["status"]}
+
+    @router.get("/runs/{run_id}/regression-test")
+    def regression_test(run_id: str, step: int | None = Query(default=None, ge=1)):
+        run = ready(run_id)
+        from blackbox.regression import export_test
+        chosen = step or ((detailed(run).get("root_cause") or {}).get("step"))
+        try:
+            return export_test(application.state.engine, run, chosen)
+        except (KeyError, ValueError, TypeError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
 
     @router.get("/runs/{run_id}/spans")
     def spans(run_id: str):

@@ -33,6 +33,7 @@ class NodeContext:
     run_id: str | None = None
     purpose: str = "agent"
     overrides: dict = field(default_factory=dict)
+    attempt: int = 1
 
 
 def _required(output, key):
@@ -48,8 +49,9 @@ def _tool(step_id, family, inputs, ctx):
     route = route if isinstance(route, dict) else {}
     args = route.get("arguments", {})
     args = args if isinstance(args, dict) else {}
-    noise = getattr(ctx.llm, "noise", 0) or 0
-    if noise and step_id in (3, 5) and node_rng(ctx.seed, f"tool{step_id}", ctx.variant).random() < noise * 0.25:
+    tool_noise = getattr(ctx.llm, "tool_noise", 0) or 0
+    retry_salt = "" if ctx.attempt == 1 else f":try{ctx.attempt}"
+    if tool_noise and step_id in (3, 5) and node_rng(ctx.seed, f"tool{step_id}{retry_salt}", ctx.variant).random() < tool_noise:
         # Natural flakiness: a transient upstream timeout.
         raise TimeoutError("Upstream tool request timed out after 5000 ms")
     if step_id == 3:

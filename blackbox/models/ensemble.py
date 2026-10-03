@@ -20,6 +20,7 @@ from ..features.semantic import INPUT_DIM, MAX_STEPS, SemanticEncoder, build_mat
 from .lgbm import TABULAR_NAMES, predict as lgb_predict, shap_values, tabular
 
 AE_TEMPERATURE = 1.5
+WINDOW_STRIDE = 12
 
 
 def _softmax(values: np.ndarray, temperature: float = 1.0) -> np.ndarray:
@@ -46,6 +47,41 @@ class ModelOutputs:
         self.ae_medians = ae_medians
         self.device = device
 
+    def _transformer_scores(self, batch, mask, lengths):
+        """M1 blame per step. Runs longer than the Transformer's 24-step positional table are
+        scored as overlapping 24-step windows (stride 12); each step's blame logit is the
+        mean over the windows that cover it, then normalised over the whole run. p_fail is
+        the maximum over windows. No retraining is needed."""
+        import torch
+        blame, pfail = [None] * len(lengths), [0.0] * len(lengths)
+        short = [i for i, n in enumerate(lengths) if n <= MAX_STEPS]
+        if short:
+            x = torch.tensor(batch[short, :MAX_STEPS], device=self.device)
+            m = torch.tensor(mask[short, :MAX_STEPS], device=self.device)
+            out = self.transformer(x, m)
+            probs, fails = out["blame"].float().cpu().numpy(), out["p_fail"].float().cpu().numpy()
+            for row, i in enumerate(short):
+                blame[i] = probs[row, :lengths[i]].astype(np.float64)
+                pfail[i] = float(fails[row])
+        for i, n in enumerate(lengths):
+            if n <= MAX_STEPS:
+                continue
+            starts = list(range(0, n - MAX_STEPS + 1, WINDOW_STRIDE))
+            if starts[-1] != n - MAX_STEPS:
+                starts.append(n - MAX_STEPS)
+            x = torch.tensor(np.stack([batch[i, s:s + MAX_STEPS] for s in starts]), device=self.device)
+            m = torch.ones((len(starts), MAX_STEPS), dtype=torch.bool, device=self.device)
+            out = self.transformer(x, m)
+            logits = out["blame_logits"].float().cpu().numpy()
+            total, count = np.zeros(n), np.zeros(n)
+            for w, s in enumerate(starts):
+                # Centre each window's logits so windows are comparable before averaging.
+                total[s:s + MAX_STEPS] += logits[w] - logits[w].mean()
+                count[s:s + MAX_STEPS] += 1
+            blame[i] = _softmax(total / np.maximum(count, 1))
+            pfail[i] = float(out["p_fail"].max())
+        return blame, pfail
+
     def compute(self, encoded: list[dict], node_names: list[list[str]]) -> list[dict]:
         import torch
         results = []
@@ -59,12 +95,8 @@ class ModelOutputs:
             batch[i, :lengths[i]] = (e["matrix"] - self.mean) / self.std
             mask[i, :lengths[i]] = True
         with torch.no_grad():
-            if self.transformer is not None:
-                out = self.transformer(torch.tensor(batch, device=self.device), torch.tensor(mask, device=self.device))
-                m1_blame = out["blame"].float().cpu().numpy()
-                m1_pfail = out["p_fail"].float().cpu().numpy()
-            else:
-                m1_blame, m1_pfail = None, None
+            m1_blame, m1_pfail = (self._transformer_scores(batch, mask, lengths) if self.transformer is not None
+                                  else (None, None))
             flat = torch.tensor(batch[mask], device=self.device)
             ae_err = self.autoencoder.anomaly_score(flat).float().cpu().numpy() if self.autoencoder is not None else None
         tab = np.concatenate([tabular(e["numeric"], e["onehot"]) for e in encoded]) if encoded else None
@@ -75,8 +107,9 @@ class ModelOutputs:
             names = node_names[i]
             item = {"n": n}
             if m1_blame is not None:
-                item["m1"] = m1_blame[i, :n].astype(np.float64)
+                item["m1"] = m1_blame[i]
                 item["m1_pfail"] = float(m1_pfail[i])
+                item["m1_windows"] = int(math.ceil(max(0, n - MAX_STEPS) / WINDOW_STRIDE)) + 1
             if m2 is not None:
                 item["m2_raw"] = m2[cursor:cursor + n].astype(np.float64)
                 item["m2"] = _normalize(item["m2_raw"])

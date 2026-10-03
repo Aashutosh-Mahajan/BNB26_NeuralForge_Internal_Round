@@ -44,10 +44,14 @@ class UsageLedger:
                          (datetime.now(timezone.utc).isoformat(), provider, model, purpose, run_id, node,
                           tokens_in, tokens_out, cached_in, reasoning, cost_usd))
 
-    def spent(self, provider: str | None = None) -> float:
+    def spent(self, provider: str | None = None, since: str | None = None) -> float:
+        query, args = "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_usage WHERE 1=1", []
+        if provider:
+            query, args = query + " AND provider=?", args + [provider]
+        if since:
+            query, args = query + " AND ts>=?", args + [since]
         with self._connection() as conn:
-            query = "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_usage"
-            row = conn.execute(query + " WHERE provider=?", (provider,)).fetchone() if provider else conn.execute(query).fetchone()
+            row = conn.execute(query, args).fetchone()
         return float(row[0])
 
     def summary(self) -> dict:
@@ -59,9 +63,13 @@ class UsageLedger:
                    "tokens_out": to or 0, "cached_in": ci or 0, "reasoning": r or 0, "cost_usd": round(cost or 0, 6)}
                   for p, m, u, c, ti, to, ci, r, cost in rows]
         return {"total_cost_usd": round(sum(g["cost_usd"] for g in groups), 6),
-                "calls": sum(g["calls"] for g in groups), "budget_usd": settings().budget_usd, "by_purpose": groups}
+                "calls": sum(g["calls"] for g in groups), "budget_usd": settings().budget_usd,
+                "budget_start": settings().budget_start,
+                "spent_toward_budget_usd": round(self.spent("openai", settings().budget_start), 6), "by_purpose": groups}
 
     def check(self, provider: str) -> None:
-        budget = settings().budget_usd
-        if provider == "openai" and budget >= 0 and self.spent("openai") >= budget:
-            raise BudgetExceeded(f"LLM budget of ${budget:.2f} is exhausted. Raise LLM_BUDGET_USD in .env to continue.")
+        cfg = settings()
+        budget = cfg.budget_usd
+        if provider == "openai" and budget >= 0 and self.spent("openai", cfg.budget_start) >= budget:
+            since = f" since {cfg.budget_start}" if cfg.budget_start else ""
+            raise BudgetExceeded(f"LLM budget of ${budget:.2f}{since} is exhausted. Raise LLM_BUDGET_USD in .env to continue.")
