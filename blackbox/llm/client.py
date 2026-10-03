@@ -108,8 +108,11 @@ class ChatLLM(BaseLLM):
                 kwargs["model_kwargs"] = {"response_format": {"type": "json_object"}}
             return ChatOpenAI(**kwargs)
         from langchain_ollama import ChatOllama
+        # num_predict caps each answer: small local models in JSON mode can otherwise loop forever.
         return ChatOllama(model=model, base_url=cfg.ollama_base_url, format="json", num_ctx=cfg.ollama_num_ctx,
-                          temperature=temperature if temperature is not None else 0, seed=seed)
+                          num_predict=int(__import__("os").environ.get("OLLAMA_NUM_PREDICT", "512")),
+                          temperature=temperature if temperature is not None else 0, seed=seed,
+                          client_kwargs={"timeout": cfg.request_timeout})
 
     def _invoke(self, system: str, user: str, temperature, seed, model):
         from langchain_core.messages import HumanMessage, SystemMessage
