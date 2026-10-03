@@ -70,7 +70,8 @@ def test_inject_repair_compare_preserves_original(client):
     result = replay.json()
     assert result["passed"] == 3
     assert result["k"] == 3
-    assert result["tokens_saved_pct"] is None
+    assert result["tokens_saved_pct"] is not None
+    assert result["patch_type"] == "output"
     assert result["reused_steps"] or result["checkpoint_steps"]
     comparison = client.get("/api/compare", params={"a": failed_id, "b": result["new_run_id"]}).json()
     assert comparison["first_divergence"] == 3
@@ -178,3 +179,27 @@ def test_api_documentation_works_through_the_vite_prefix(client):
     schema = client.get("/api/openapi.json").json()
     assert schema["servers"] == [{"url": "/api"}]
     assert "/runs" in schema["paths"]
+
+
+def test_llm_status_models_spans_and_explanation(client):
+    run_id, _ = start_finance(client)
+    status = client.get("/api/llm/status").json()
+    from blackbox.config import settings
+    assert status["openai_model"] == settings().openai_model
+    assert status["pricing_per_million"] == {"input": 0.10, "cached_input": 0.01, "output": 0.50}
+    assert "available" in client.get("/api/models/status").json()
+    spans = client.get(f"/api/runs/{run_id}/spans").json()["spans"]
+    assert len(spans) == 11
+    failure = client.post(f"/runs/{run_id}/inject", json={"step_id": 3, "fault_type": "stale_data"}).json()
+    explanation = client.get(f"/api/runs/{failure['new_run_id']}/explain?mode=template").json()
+    assert "Step 3" in explanation["text"]
+    stats = client.get("/api/stats").json()
+    assert stats["suspiciousness"] and "cost_usd" in stats
+
+
+def test_prompt_patch_rejected_for_tool_steps(client):
+    run_id, _ = start_finance(client)
+    response = client.post(f"/runs/{run_id}/replay", json={"from_step": 3, "patch": {"prompt": "x"}, "k": 1})
+    assert response.status_code == 422
+    response = client.post(f"/runs/{run_id}/replay", json={"from_step": 9, "patch": {"temperature": 0.4}, "k": 1})
+    assert response.status_code == 200, response.text

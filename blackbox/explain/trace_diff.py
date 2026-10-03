@@ -1,5 +1,6 @@
 """Needleman-Wunsch alignment and dependency-free recursive JSON diffs."""
 from __future__ import annotations
+import json
 from typing import Any
 
 
@@ -76,6 +77,21 @@ def _align(a: list[dict], b: list[dict]) -> list[tuple[dict | None, dict | None]
     return list(reversed(aligned))
 
 
+def state_diff(a: dict, b: dict, limit: int = 40) -> dict:
+    """DeepDiff of the final agent state (falls back to the recursive diff)."""
+    before = (a.get("steps") or [{}])[-1].get("state_after", {})
+    after = (b.get("steps") or [{}])[-1].get("state_after", {})
+    try:
+        from deepdiff import DeepDiff
+        diff = DeepDiff(before, after, ignore_order=True, significant_digits=8, verbose_level=2).to_dict()
+        return {"engine": "deepdiff", "summary": {k: len(v) for k, v in diff.items()},
+                "details": json.loads(json.dumps({k: dict(list(v.items())[:limit]) if isinstance(v, dict) else list(v)[:limit]
+                                                  for k, v in diff.items()}, default=str))}
+    except ImportError:
+        changes = json_changes(before, after, "$", limit)
+        return {"engine": "recursive", "summary": {"changed": len(changes)}, "details": changes}
+
+
 def compare_runs(a: dict, b: dict) -> dict:
     """Compare observable execution/state. Outcomes are reporting metadata only."""
     aligned_steps, changes = [], []
@@ -99,7 +115,7 @@ def compare_runs(a: dict, b: dict) -> dict:
         if delta:
             changes.append(entry)
     return {"a": a.get("run_id"), "b": b.get("run_id"), "first_divergence": first_divergence,
-            "changes": changes, "aligned_steps": aligned_steps,
+            "changes": changes, "aligned_steps": aligned_steps, "state_diff": state_diff(a, b),
             "outcome": {"before": a.get("success"), "after": b.get("success"),
                         "changed": a.get("success") != b.get("success"),
                         "answer_before": a.get("final_answer"), "answer_after": b.get("final_answer")}}

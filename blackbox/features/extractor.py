@@ -1,7 +1,7 @@
-"""Small inspectable observable feature set for the offline baseline.
+"""Observable per-step numeric features (20) used by every diagnosis model.
 
-This is not the PRD's MiniLM/NLI 412-dimensional pipeline. The dependency-free
-baseline is deliberately labelled separately from the planned neural ensemble.
+The 412-dimensional model input (MiniLM embedding + node one-hot + these 20)
+is assembled in ``features.semantic``. Labels and outcomes never enter.
 """
 from __future__ import annotations
 from datetime import datetime, timezone
@@ -11,10 +11,20 @@ from typing import Any
 
 FEATURE_NAMES = ["position", "fan_out", "latency", "tokens", "retries", "tool_error",
                  "empty_output", "data_age_days", "source_disagreement", "constraint_loss",
-                 "value_inconsistency", "reference_divergence", "first_divergence", "repetition",
+                 "value_inconsistency", "value_deviation", "contradiction", "repetition",
                  "state_overwrite", "premature_answer", "missing_parent", "output_size",
                  "descendant_count", "invalid_number"]
-_RUN_FIELDS = ("run_id", "created_at", "frozen_at", "family", "task_family", "prompt", "task_id")
+# Reference-run features are used by the explanation and heuristic only, never by
+# trained models: a paired clean run is not available for natural failures.
+REFERENCE_FEATURES = ["reference_divergence", "first_divergence"]
+FEATURE_GROUPS = {
+    "consistency": ["constraint_loss", "value_inconsistency", "contradiction", "state_overwrite"],
+    "freshness": ["data_age_days", "source_disagreement", "value_deviation"],
+    # Rule-like detectors that partly anticipate the held-out fault types.
+    "structural_detectors": ["repetition", "premature_answer", "state_overwrite", "missing_parent"],
+}
+PRIMARY_KEYS = ("rate", "factor", "value", "quantity", "unit_price", "term_months", "answer")
+_RUN_FIELDS = ("run_id", "created_at", "frozen_at", "family", "task_family", "prompt", "task_id", "context")
 _STEP_FIELDS = ("step_id", "node_name", "node_type", "parent_step_ids", "input", "output",
                 "state_before", "state_after", "tool_error", "as_of", "latency_ms",
                 "tokens_in", "tokens_out", "retries")
@@ -115,7 +125,70 @@ def _nearest_reference(run: dict, references: list[dict]) -> dict | None:
     return max(candidates, key=lambda r: str(r.get("created_at", "")), default=None)
 
 
-def extract_features(raw_run: dict, successful_runs: list[dict] | None = None) -> dict:
+def primary_value(output: Any) -> float | None:
+    if not isinstance(output, dict):
+        return None
+    for key in PRIMARY_KEYS:
+        value = _number(output.get(key))
+        if value is not None and math.isfinite(value):
+            return value
+    docs = output.get("documents")
+    if isinstance(docs, list) and docs and isinstance(docs[0], dict):
+        return _number(docs[0].get("days"))
+    return None
+
+
+def node_stats(successful_runs: list[dict]) -> dict:
+    """Robust (median, MAD) of each node's primary value across successful runs."""
+    values: dict[str, list[float]] = {}
+    for run in successful_runs:
+        family = run.get("task_family", "")
+        for step in run.get("steps", []):
+            value = primary_value(step.get("output"))
+            if value is not None:
+                values.setdefault(f"{family}:{step.get('node_name')}", []).append(value)
+    stats = {}
+    for key, items in values.items():
+        items.sort()
+        median = items[len(items) // 2]
+        deviations = sorted(abs(v - median) for v in items)
+        stats[key] = {"median": median, "mad": deviations[len(deviations) // 2], "n": len(items)}
+    return stats
+
+
+def _deviation(family: str, step: dict, stats: dict | None) -> float:
+    if not stats:
+        return 0.0
+    entry = stats.get(f"{family}:{step.get('node_name')}")
+    value = primary_value(step.get("output"))
+    if not entry or value is None or entry["n"] < 3:
+        return 0.0
+    scale = max(1.4826 * entry["mad"], 1e-6 * max(1.0, abs(entry["median"])))
+    return min(math.log1p(abs(value - entry["median"]) / scale), 12.0)
+
+
+def _planner_loss(family: str, inputs: dict, out: dict) -> float:
+    """Disagreement between the plan and an independent rule-based reading of the prompt."""
+    produced = _constraints(out)
+    prompt = inputs.get("prompt")
+    if not isinstance(prompt, str):
+        return 0.0
+    from ..agent.tasks import DEFAULTS, PARSERS
+    if family not in PARSERS:
+        return 0.0
+    expected = {**DEFAULTS[family], **PARSERS[family](prompt), **(inputs.get("context") or {})}
+
+    def same(a, b):
+        x, y = _number(a), _number(b)
+        if x is not None and y is not None and not isinstance(a, str):
+            return abs(x - y) <= 1e-6 * max(1.0, abs(y))
+        return str(a).strip().lower() == str(b).strip().lower()
+    keys = list(DEFAULTS[family])
+    return sum(k not in produced or not same(produced[k], expected[k]) for k in keys) / max(1, len(keys))
+
+
+def extract_features(raw_run: dict, successful_runs: list[dict] | None = None, stats: dict | None = None,
+                     contradiction: list[float] | None = None) -> dict:
     run = observable_run(raw_run)
     steps = run["steps"]
     reference = _nearest_reference(run, successful_runs or [])
@@ -151,7 +224,12 @@ def extract_features(raw_run: dict, successful_runs: list[dict] | None = None) -
             requested = inputs["params"]
         produced = _constraints(out)
         constraint_loss = 0.0
-        if requested and ("plan" in node_type or "plan" in name):
+        if ("plan" in node_type or "plan" in name) and isinstance(inputs.get("prompt"), str):
+            try:
+                constraint_loss = _planner_loss(run.get("task_family", ""), inputs, out)
+            except (ValueError, TypeError):
+                constraint_loss = 0.0
+        elif requested and ("plan" in node_type or "plan" in name):
             ignored = {"template_id", "frozen_at"}
             keys = [k for k in requested if k not in ignored]
             constraint_loss = sum(k not in produced or produced[k] != requested[k] for k in keys) / max(1, len(keys))
@@ -216,10 +294,13 @@ def extract_features(raw_run: dict, successful_runs: list[dict] | None = None) -
         row = dict(zip(FEATURE_NAMES, [i / max(len(steps) - 1, 1), float(fan_out),
             math.log1p(max(0, _number(step.get("latency_ms")) or 0)),
             math.log1p(max(0, (_number(step.get("tokens_in")) or 0) + (_number(step.get("tokens_out")) or 0))),
-            float(step.get("retries") or 0), tool_error, empty, age, min(disagreement, 10.0),
-            constraint_loss, value_inconsistency, diverged, float(sid == first_divergence), repeated,
+            float(step.get("retries") or 0), tool_error, empty, math.log1p(age), min(disagreement, 10.0),
+            constraint_loss, value_inconsistency, _deviation(run.get("task_family", ""), step, stats),
+            float(contradiction[i]) if contradiction and i < len(contradiction) else 0.0, repeated,
             overwritten, premature, missing_parent, math.log1p(len(json.dumps(output, default=str))),
             float(len(descendants)), invalid]))
+        row["reference_divergence"] = diverged
+        row["first_divergence"] = float(sid == first_divergence)
         result.append(row)
         details.append({"step": sid, "node": name, "descendants": descendants, "age_days": age})
         seen_ids.add(sid)

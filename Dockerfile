@@ -5,12 +5,14 @@ RUN npm ci
 COPY dashboard/ ./
 RUN npm run build
 
-FROM python:3.12-slim AS runtime
+FROM python:3.11-slim AS runtime
 WORKDIR /app
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 BLACKBOX_DB=/app/data/traces.db BLACKBOX_METRICS=/app/data/metrics.json
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 BLACKBOX_DB=/app/data/traces.db \
+    BLACKBOX_METRICS=/app/data/metrics.json BLACKBOX_MODEL_DIR=/app/data/models HF_HOME=/app/data/cache/hf
 COPY pyproject.toml README.md ./
 COPY blackbox/ ./blackbox/
-RUN pip install --no-cache-dir .
+# CPU torch keeps the image small; diagnosis runs in ~100 ms per run on CPU.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && pip install --no-cache-dir .
 COPY --from=dashboard /app/dashboard/dist ./dashboard/dist
 RUN mkdir -p /app/data
 EXPOSE 8000

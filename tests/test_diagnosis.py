@@ -1,7 +1,7 @@
 import copy
 import unittest
 
-from blackbox.diagnosis import diagnose
+from blackbox.diagnosis import heuristic as diagnose
 from blackbox.explain import compare_runs, json_changes
 from blackbox.features import extract_features
 from blackbox.models.linear import train_ranker

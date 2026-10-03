@@ -1,5 +1,24 @@
 fastapi>=0.115,<1.0
 uvicorn[standard]>=0.30,<1.0
 numpy>=1.26,<3.0
+python-dotenv>=1.0
+# Agent + LLM providers
+langgraph>=0.2
+langchain-openai>=0.2
+langchain-ollama>=0.2
+openai>=1.40
+# ML (install the CUDA build of torch first for GPU: pip install torch --index-url https://download.pytorch.org/whl/cu126)
+torch>=2.3
+lightgbm>=4.3
+scikit-learn>=1.5
+sentence-transformers>=3
+shap>=0.46
+# Tracing, diffing, analytics
+opentelemetry-sdk>=1.25
+opentelemetry-exporter-otlp-proto-http>=1.25
+deepdiff>=7
+duckdb>=1.0
+huggingface-hub>=0.24
+# Tests
 pytest>=8,<9
 httpx>=0.27,<1

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from blackbox import Engine, SandboxAgent, Store, wrap
 from blackbox.engine import FAULT_CATALOG
+from blackbox.llm import SandboxLLM
 from blackbox.replay import wilson_interval
 
 TIME = "2026-10-03T12:00:00+00:00"
@@ -14,7 +15,7 @@ class EngineTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.store = Store(Path(self.temp.name) / "traces.db")
-        self.engine = Engine(self.store)
+        self.engine = Engine(self.store, llm=SandboxLLM(0.0))
 
     def tearDown(self):
         self.store.close()
@@ -23,11 +24,18 @@ class EngineTests(unittest.TestCase):
     def good(self, family="finance", **params):
         return self.engine.run(PROMPT if family == "finance" else "Example task", family, {"frozen_at": TIME, **params})
 
-    def test_four_families_record_checkpoints_and_zero_real_tokens(self):
+    def test_four_families_record_checkpoints_and_zero_billed_tokens(self):
         for family in ("finance", "sql", "doc_qa", "math"):
             run = self.good(family)
             self.assertTrue(run["success"], family)
-            self.assertEqual(run["total_tokens"], 0)
+            # Offline calls spend estimated tokens but cost nothing.
+            self.assertEqual(run["billed_tokens"], run["total_tokens"])
+            self.assertEqual(run["cost_usd"], 0)
+            self.assertTrue(run["tokens_estimated"])
+            self.assertGreater(run["total_tokens"], 0)
+            self.assertEqual(run["orchestrator"], "langgraph")
+            self.assertEqual([s["llm_call"] for s in run["steps"]],
+                             [True, True, False, False, False, False, False, False, True, True])
             self.assertEqual(len(run["steps"]), 10)
             for step in run["steps"]:
                 self.assertEqual(self.store.get_checkpoint(step["checkpoint_id"]), step["state_after"])
@@ -50,7 +58,9 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(self.store.get_run(failed["run_id"]), original_snapshot)
         self.assertEqual(fixed["parent_run_id"], failed["run_id"])
         self.assertEqual(replay["avoided_steps_pct"], 40.0)
-        self.assertIsNone(replay["tokens_saved_pct"])
+        # Reasoner and final answer re-run; the cache serves them, so nothing is billed.
+        self.assertEqual(replay["tokens_saved_pct"], 100.0)
+        self.assertLess(replay["tokens_saved_pct_without_cache"], 100.0)
         self.assertFalse(replay["independent_trials"])
         self.assertEqual(replay["effective_sample_size"], 1)
 
@@ -62,7 +72,7 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(clean_again["steps"][2]["output"], baseline["steps"][2]["output"])
         self.assertTrue(clean_again["success"])
         cached = self.store.get_cached(baseline["steps"][2]["cache_key"])
-        self.assertEqual(cached, baseline["steps"][2]["output"])
+        self.assertEqual(cached["output"], baseline["steps"][2]["output"])
 
     def test_all_twelve_faults_have_effective_compatible_interventions(self):
         baseline = self.good()
@@ -139,7 +149,7 @@ class EngineTests(unittest.TestCase):
 
 class InputBoundaryTests(unittest.TestCase):
     def setUp(self):
-        self.engine = Engine(":memory:")
+        self.engine = Engine(":memory:", llm=SandboxLLM(0.0))
 
     def tearDown(self):
         self.engine.store.close()
@@ -185,7 +195,8 @@ class InputBoundaryTests(unittest.TestCase):
             ("sql", {"region": 1}),
             ("finance", {"annual_rate": 10 ** 400}),
             ("math", {"template_id": []}),
-            ("sql", {"scale": 1e308}),
+            ("sql", {"quarter": "Q9"}),
+            ("doc_qa", {"category": "spaceships"}),
             ("finance", ["not a parameter object"]),
         ]
         for family, params in cases:
@@ -195,6 +206,114 @@ class InputBoundaryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.engine.run("Convert INR 50,000 for " + "9" * 400 + " months")
         self.assertEqual(self.engine.store.list_runs(), [])
+
+
+
+
+class LLMProviderTests(unittest.TestCase):
+    """The agent runs against any provider object; here a scripted fake stands in for GPT-6 Luna."""
+
+    def test_chat_provider_records_tokens_cost_and_prompt_patches(self):
+        import json
+        from blackbox.llm.client import BaseLLM, LLMResult
+
+        class ScriptedLLM(BaseLLM):
+            provider, model, stochastic = "openai", "gpt-6-luna", True
+
+            def __init__(self):
+                self.calls = []
+
+            def complete_json(self, system, user, **kwargs):
+                self.calls.append((system, user, kwargs))
+                if "planning node" in system:
+                    data = {"constraints": {"amount": 50000, "months": 12, "annual_rate": 9,
+                                            "base_currency": "INR", "target_currency": "USD"}}
+                elif "router node" in system:
+                    plan = json.loads(user.split("Plan: ", 1)[1])
+                    data = {"tool": "currency_rate", "arguments": plan["constraints"]}
+                elif "reasoning node" in system:
+                    calc = json.loads(user.split("Calculator output: ", 1)[1].split(chr(10) + "Additional")[0])
+                    data = {"answer": calc["value"], "rationale": "copied"}
+                else:
+                    data = {"answer": json.loads(user.split("Reasoner output: ", 1)[1])["answer"]}
+                return LLMResult(data=data, text=json.dumps(data), provider="openai", model=kwargs.get("model") or self.model,
+                                 tokens_in=200, tokens_out=50, cost_usd=0.000045, temperature=kwargs.get("temperature"),
+                                 seed=kwargs.get("seed"))
+
+        llm = ScriptedLLM()
+        engine = Engine(":memory:", llm=llm)
+        run = engine.run(PROMPT, params={"frozen_at": TIME}, expose_params=False)
+        self.assertTrue(run["success"])
+        self.assertEqual(run["billed_tokens"], 4 * 250)
+        self.assertAlmostEqual(run["cost_usd"], 4 * 0.000045)
+        self.assertEqual(run["llm_provider"], "openai")
+        self.assertIn("planning node", run["steps"][0]["prompt"])
+        replay = engine.replay(run["run_id"], 9, {"prompt": "Be precise.", "temperature": 0.5}, k=2)
+        self.assertTrue(replay["independent_trials"])
+        self.assertEqual(replay["passed"], 2)
+        self.assertIn("Additional instruction: Be precise.", llm.calls[-1][1])
+        with self.assertRaises(ValueError):
+            engine.replay(run["run_id"], 3, {"prompt": "tools take no prompt"}, k=1)
+
+    def test_budget_guard_and_pricing(self):
+        import tempfile
+        from blackbox.config import settings
+        from blackbox.llm.usage import BudgetExceeded, UsageLedger
+        cfg = settings()
+        self.assertAlmostEqual(cfg.price_usd(1_000_000, 0), 0.10)
+        self.assertAlmostEqual(cfg.price_usd(1_000_000, 1_000_000, cached_in=500_000), 0.05 + 0.005 + 0.50)
+        with tempfile.TemporaryDirectory() as folder:
+            ledger = UsageLedger(folder + "/usage.db")
+            ledger.record(provider="openai", model="gpt-6-luna", purpose="agent", run_id="x", node="planner",
+                          tokens_in=1, tokens_out=1, cached_in=0, reasoning=0, cost_usd=cfg.budget_usd + 1)
+            with self.assertRaises(BudgetExceeded):
+                ledger.check("openai")
+            ledger.check("sandbox")
+
+
+class DatasetAndLabelerTests(unittest.TestCase):
+    def test_templates_parse_and_counterfactual_labels_match_simulation(self):
+        import tempfile
+        from blackbox.datagen import generate
+        with tempfile.TemporaryDirectory() as folder:
+            manifest = generate(folder + "/d.db", "sandbox", noise=0.15, tasks_per_family=12, seed=3)
+            self.assertEqual(manifest["errors"], 0)
+            self.assertGreater(manifest["natural_failures"], 0)
+            self.assertGreater(manifest["injected"], manifest["clean"])
+            self.assertEqual(manifest["labeler_agreement_with_simulation"], 1.0)
+            self.assertIn("unseen_fault/injected", manifest["counts"])
+
+
+class TelemetryTests(unittest.TestCase):
+    def test_openinference_spans(self):
+        from blackbox.recorder.otel import spans_for_run
+        engine = Engine(":memory:", llm=SandboxLLM(0.0))
+        spans = spans_for_run(engine.run(PROMPT, params={"frozen_at": TIME}))
+        self.assertEqual(spans[0]["attributes"]["openinference.span.kind"], "AGENT")
+        kinds = [s["attributes"]["openinference.span.kind"] for s in spans[1:]]
+        self.assertEqual(kinds[:4], ["LLM", "LLM", "TOOL", "RETRIEVER"])
+        self.assertIn("llm.token_count.prompt", spans[1]["attributes"])
+
+    def test_wrap_records_an_external_langgraph(self):
+        from typing import TypedDict
+        from langgraph.graph import END, START, StateGraph
+
+        class State(TypedDict, total=False):
+            question: str
+            plan: str
+            answer: int
+
+        graph = StateGraph(State)
+        graph.add_node("planner", lambda s: {"plan": "add"})
+        graph.add_node("calculator_tool", lambda s: {"answer": 4})
+        graph.add_edge(START, "planner")
+        graph.add_edge("planner", "calculator_tool")
+        graph.add_edge("calculator_tool", END)
+        store = Store(":memory:")
+        run = wrap(graph.compile(), store).invoke({"question": "2+2"}, gold_answer=4)
+        self.assertEqual(run["status"], "PASSED")
+        self.assertEqual([s["node_name"] for s in run["steps"]], ["planner", "calculator_tool"])
+        self.assertEqual(store.get_checkpoint(run["steps"][1]["checkpoint_id"])["answer"], 4)
 
 
 if __name__ == "__main__":

@@ -4,19 +4,34 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "blackbox-agent-recorder"
-version = "0.1.0"
-description = "A local flight recorder, fault investigator, and checkpoint replay workbench for sandbox agents."
+version = "0.2.0"
+description = "Black Box: a flight recorder and crash investigator for AI agents."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.115,<1.0",
     "uvicorn[standard]>=0.30,<1.0",
     "numpy>=1.26,<3.0",
+    "python-dotenv>=1.0",
+    "langgraph>=0.2",
+    "langchain-openai>=0.2",
+    "langchain-ollama>=0.2",
+    "openai>=1.40",
+    "torch>=2.3",
+    "lightgbm>=4.3",
+    "scikit-learn>=1.5",
+    "sentence-transformers>=3",
+    "opentelemetry-sdk>=1.25",
+    "opentelemetry-exporter-otlp-proto-http>=1.25",
+    "deepdiff>=7",
+    "duckdb>=1.0",
+    "huggingface-hub>=0.24",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<9", "httpx>=0.27,<1"]
-ml = ["torch>=2.3", "lightgbm>=4.3", "scikit-learn>=1.5", "sentence-transformers>=3", "shap>=0.46"]
+ml = ["shap>=0.46"]
+explainer = ["peft>=0.13", "transformers>=4.45", "accelerate>=0.33"]
 
 [tool.setuptools.packages.find]
 include = ["blackbox*"]

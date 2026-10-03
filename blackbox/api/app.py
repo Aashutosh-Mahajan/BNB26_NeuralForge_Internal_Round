@@ -1,4 +1,4 @@
-"""FastAPI transport for the local sandbox recorder and replay engine."""
+"""FastAPI backend: runs, live stream, diagnosis, replay, comparison, evaluation and LLM status."""
 from __future__ import annotations
 
 import asyncio
@@ -20,9 +20,14 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from blackbox.agent.tasks import parameters
 from blackbox.agent.tools import parse_time
-from blackbox.diagnosis import diagnose
+from blackbox.config import ROOT
+from blackbox.diagnosis import diagnose_many
 from blackbox.engine import Engine, FAULT_CATALOG
 from blackbox.explain import compare_runs
+from blackbox.llm import provider_status, UsageLedger
+from blackbox.models.ensemble import ensemble_status, load_ensemble
+from blackbox.models.spectrum import ochiai
+from blackbox.recorder.otel import spans_for_run
 from blackbox.storage import Store
 from .events import EventLog
 
@@ -37,6 +42,7 @@ class RunRequest(RequestModel):
     prompt: str = Field(min_length=3, max_length=4000)
     task_family: Literal["finance", "sql", "doc_qa", "math"] = "finance"
     params: dict[str, Any] | None = None
+    provider: Literal["default", "sandbox", "openai", "ollama"] = "default"
 
     @field_validator("prompt")
     @classmethod
@@ -53,7 +59,10 @@ class InjectionRequest(RequestModel):
 
 
 class OutputPatch(RequestModel):
-    output: Any
+    output: Any = None
+    prompt: str | None = Field(default=None, max_length=2000)
+    model: str | None = Field(default=None, max_length=100)
+    temperature: float | None = Field(default=None, ge=0, le=2)
 
     @field_validator("output")
     @classmethod
@@ -63,6 +72,9 @@ class OutputPatch(RequestModel):
         except (ValueError, TypeError) as error:
             raise ValueError("Patch output must be finite JSON.") from error
         return value
+
+    def as_patch(self) -> dict[str, Any]:
+        return dict(self.model_dump(exclude_unset=True))
 
 
 class ReplayRequest(RequestModel):
@@ -84,6 +96,8 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
         database.parent.mkdir(parents=True, exist_ok=True)
         application.state.store = Store(database)
         application.state.engine = Engine(application.state.store)
+        application.state.engines = {}
+        application.state.diagnoses = {}
         application.state.events = EventLog(database)
         # Interrupted processes leave explicit errors instead of streams that wait forever.
         for run in application.state.store.list_runs():
@@ -91,6 +105,7 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
                 run.update(status="ERROR", success=False, error="Execution interrupted by a server restart.")
                 application.state.store.save_run(run)
                 application.state.events.append(run["run_id"], {"type": "error", "status": "ERROR", "message": run["error"]})
+        await asyncio.to_thread(warm_models)
         if should_seed and not application.state.store.list_runs():
             await asyncio.to_thread(seed_examples)
         yield
@@ -98,8 +113,8 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
             await asyncio.gather(*background_tasks, return_exceptions=True)
         application.state.store.close()
 
-    application = FastAPI(title="Black Box", version="0.1.0", lifespan=lifespan, servers=[{"url": "/api"}],
-                          description="Deterministic sandbox flight recorder and evidence-based diagnosis baseline.")
+    application = FastAPI(title="Black Box", version="0.2.0", lifespan=lifespan, servers=[{"url": "/api"}],
+                          description="Flight recorder and crash investigator for AI agents.")
     origins = os.environ.get("BLACKBOX_CORS_ORIGINS", "http://localhost:5174,http://127.0.0.1:5174").split(",")
     application.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
     router = APIRouter()
@@ -113,10 +128,46 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
     def successes() -> list[dict[str, Any]]:
         return [run for run in application.state.store.list_runs() if run.get("success") is True]
 
+    def engine_for(provider: str | None):
+        if not provider or provider == "default":
+            return application.state.engine
+        if provider not in application.state.engines:
+            engine = Engine(application.state.store, llm=provider)
+            if engine.llm.provider != provider:
+                raise HTTPException(status_code=422, detail=f"Provider {provider} is unavailable: {engine.llm_warning}")
+            application.state.engines[provider] = engine
+        return application.state.engines[provider]
+
+    def diagnoses_for(runs: list[dict[str, Any]], reference: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+        """Completed runs are immutable, so a diagnosis is cached per model version."""
+        model = load_ensemble()
+        version = model.version if model else "heuristic"
+        cache = application.state.diagnoses
+        todo = [r for r in runs if (r["run_id"], version) not in cache]
+        if todo:
+            for run, result in zip(todo, diagnose_many(todo, successful_runs=reference)):
+                cache[(run["run_id"], version)] = result
+        return [cache[(r["run_id"], version)] for r in runs]
+
+    def counterfactual(run: dict[str, Any]) -> dict[str, Any] | None:
+        replays = [r for r in application.state.store.list_runs(limit=5000)
+                   if r.get("parent_run_id") == run["run_id"] and r.get("replay")]
+        if not replays:
+            return None
+        latest = replays[0]
+        group = [r for r in replays if r["replay"].get("from_step") == latest["replay"].get("from_step")
+                 and r["replay"].get("patch") == latest["replay"].get("patch")]
+        passed = sum(bool(r.get("success")) for r in group)
+        verdict = ("confirmed" if passed / len(group) >= 0.5 and not run.get("success")
+                   else "rejected" if not passed else "inconclusive")
+        return {"from_step": latest["replay"]["from_step"], "passed": passed, "k": len(group),
+                "verdict": verdict, "replay_run_id": latest["run_id"]}
+
     def detailed(run: dict[str, Any]) -> dict[str, Any]:
-        if run.get("status") in {"QUEUED", "RUNNING", "ERROR"}:
+        if run.get("status") not in {"PASSED", "FAILED"}:
             return {**run, "diagnosis": None}
-        diagnosis = diagnose(run, successful_runs=successes())
+        diagnosis = dict(diagnoses_for([run], successes())[0])
+        diagnosis["evidence"] = {**diagnosis.get("evidence", {}), "counterfactual": counterfactual(run)}
         return {**run, **diagnosis, "diagnosis": diagnosis}
 
     def step_event(step: dict[str, Any]) -> dict[str, Any]:
@@ -130,6 +181,16 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
             for step in run.get("steps", []):
                 events.append(run["run_id"], step_event(step))
             events.append(run["run_id"], {"type": "complete", "status": run["status"], "run": run})
+
+    def warm_models() -> None:
+        """Load the ensemble and encoders once so diagnosis latency excludes model loading."""
+        if load_ensemble() is None:
+            return
+        try:
+            probe = Engine(":memory:").run("Buy 2 items at $3 each with a 10% discount.", "math")
+            diagnose_many([probe])
+        except Exception:
+            logger.warning("Model warm-up failed", exc_info=True)
 
     def seed_examples() -> None:
         examples = {
@@ -165,7 +226,8 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
     async def execute(run_id: str, request: RunRequest) -> None:
         try:
             callback = lambda step: application.state.events.append(run_id, step_event(step))
-            run = await asyncio.to_thread(application.state.engine.run, request.prompt,
+            engine = engine_for(request.provider)
+            run = await asyncio.to_thread(engine.run, request.prompt,
                                           task_family=request.task_family, params=request.params,
                                           on_step=callback, run_id=run_id)
             application.state.events.append(run_id, {"type": "complete", "status": run["status"], "run": run})
@@ -178,7 +240,29 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
 
     @router.get("/health")
     def health():
-        return {"status": "ok", "mode": "deterministic_sandbox", "version": "0.1.0"}
+        engine = application.state.engine
+        return {"status": "ok", "mode": engine.llm.provider, "model": engine.llm.model, "version": "0.2.0",
+                "llm_warning": engine.llm_warning}
+
+    @router.get("/llm/status")
+    def llm_status():
+        engine = application.state.engine
+        return {**provider_status(), "active_provider": engine.llm.provider, "active_model": engine.llm.model,
+                "warning": engine.llm_warning, "usage": UsageLedger().summary()}
+
+    @router.get("/models/status")
+    def models_status():
+        return ensemble_status()
+
+    @router.get("/dataset")
+    def dataset_info():
+        manifests = {}
+        for path in sorted((ROOT / "data").glob("dataset_*.manifest.json")):
+            try:
+                manifests[path.name] = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+        return {"datasets": manifests}
 
     @router.get("/faults")
     def faults():
@@ -186,6 +270,7 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
 
     @router.post("/runs", status_code=202)
     async def start_run(request: RunRequest):
+        engine_for(request.provider)
         try:
             parameter_values = dict(request.params or {})
             if "frozen_at" in parameter_values:
@@ -209,13 +294,16 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
         all_runs = application.state.store.list_runs(limit=10000)
         selected = [run for run in all_runs if status is None or run.get("status") == status.upper()]
         normal = [run for run in all_runs if run.get("success") is True]
+        page = selected[:limit]
+        complete = [run for run in page if run.get("status") in {"PASSED", "FAILED"}]
+        found = dict(zip([r["run_id"] for r in complete], diagnoses_for(complete, normal)))
         summaries = []
-        for run in selected[:limit]:
-            diagnosis = diagnose(run, successful_runs=normal) if run.get("status") in {"PASSED", "FAILED"} else {}
+        for run in page:
+            diagnosis = found.get(run["run_id"], {})
             root = diagnosis.get("root_cause") or {}
             summaries.append({key: value for key, value in {**run, **diagnosis,
                 "step_count": len(run.get("steps", [])), "suspect_step": root.get("step"),
-                "blame": root.get("confidence")}.items() if key not in {"steps", "checkpoints"}})
+                "blame": root.get("confidence")}.items() if key not in {"steps", "checkpoints", "step_scores", "evidence"}})
         return {"runs": summaries, "total": len(selected)}
 
     @router.get("/runs/{run_id}")
@@ -274,13 +362,23 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
         ready(run_id)
         try:
             result = await asyncio.to_thread(application.state.engine.replay, run_id,
-                request.from_step, request.patch.model_dump(), request.k)
+                request.from_step, request.patch.as_patch(), request.k)
         except (KeyError, ValueError, TypeError) as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         for replay_id in result.get("replay_run_ids", [result.get("new_run_id")]):
             if replay_id:
                 history(get_run(replay_id))
         return result
+
+    @router.get("/runs/{run_id}/explain")
+    async def explain(run_id: str, mode: Literal["auto", "template", "llm", "qlora"] = "auto"):
+        run = detailed(ready(run_id))
+        from blackbox.explain.narrator import narrate
+        return await asyncio.to_thread(narrate, run, run["diagnosis"], mode)
+
+    @router.get("/runs/{run_id}/spans")
+    def spans(run_id: str):
+        return {"run_id": run_id, "conventions": "OpenInference", "spans": spans_for_run(get_run(run_id))}
 
     @router.get("/runs/{run_id}/suggest-fix")
     def suggest_fix(run_id: str, step: int = Query(ge=1)):
@@ -301,8 +399,7 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
         failed = [run for run in runs if run.get("status") == "FAILED"]
         components: dict[str, int] = {}
         latencies = []
-        for run in failed:
-            diagnosis = diagnose(run, successful_runs=passed)
+        for run, diagnosis in zip(failed, diagnoses_for(failed, passed)):
             root = diagnosis.get("root_cause") or {}
             component = root.get("node", "unknown")
             components[component] = components.get(component, 0) + 1
@@ -313,7 +410,12 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
                     "running": sum(run.get("status") in {"QUEUED", "RUNNING"} for run in runs)},
                 "by_component": [{"component": key, "count": value} for key, value in sorted(components.items(), key=lambda pair: -pair[1])],
                 "diagnosis_latency_ms": sum(latencies) / len(latencies) if latencies else None,
-                "top1": metrics().get("top1"), "mode": "deterministic_sandbox", "total_tokens": 0}
+                "top1": metrics().get("top1"), "mode": application.state.engine.llm.provider,
+                "total_tokens": sum(run.get("total_tokens", 0) for run in runs),
+                "billed_tokens": sum(run.get("billed_tokens", 0) for run in runs),
+                "cost_usd": round(sum(run.get("cost_usd", 0) for run in runs), 6),
+                "suspiciousness": sorted(ochiai(passed + failed), key=lambda c: -c["suspiciousness"])[:8],
+                "method": "ensemble" if load_ensemble() else "observable_evidence_heuristic"}
 
     @router.get("/eval")
     def evaluation():
@@ -339,13 +441,13 @@ def create_app(db_path: str | Path | None = None, *, seed_demo: bool | None = No
 
         @application.get("/", include_in_schema=False)
         def dashboard_home():
-            return FileResponse(dashboard / "index.html")
+            return FileResponse(dashboard / "index.html", headers={"Cache-Control": "no-cache"})
 
         @application.get("/{path:path}", include_in_schema=False)
         def dashboard_fallback(path: str):
             if path == "api" or path.startswith("api/"):
                 raise HTTPException(status_code=404, detail="API endpoint not found.")
-            return FileResponse(dashboard / "index.html")
+            return FileResponse(dashboard / "index.html", headers={"Cache-Control": "no-cache"})
     return application
 
 

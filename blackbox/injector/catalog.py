@@ -19,6 +19,11 @@ FAULT_CATALOG = [
 ]
 
 def _change_number(output):
+    documents = output.get("documents")
+    if isinstance(documents, list) and documents and isinstance(documents[0], dict) and "days" in documents[0]:
+        documents[0]["days"] = documents[0]["days"] + 15
+        documents[0]["text"] = documents[0].get("text", "").replace(f" {documents[0]['days'] - 15} days", f" {documents[0]['days']} days")
+        return output
     for key in ("rate", "value", "quantity", "unit_price", "term_months", "answer", "days"):
         if key in output:
             value = output[key]
@@ -29,13 +34,21 @@ def _change_number(output):
                 output[key] = f"{int(value.split()[0]) + 15} days"
                 return output
     if output.get("aggregate_column"):
-        output["aggregate_column"] = "units"
+        metrics = output.get("metrics") or {}
+        output["metrics"] = {name: ("units" if column == "revenue" else "revenue") for name, column in metrics.items()}
+        output["aggregate_column"] = "units" if output["aggregate_column"] == "revenue" else "revenue"
         return output
     raise ValueError("This step has no compatible value to corrupt")
 
 def _arguments(args, family):
-    key = {"finance": "amount", "sql": "scale", "doc_qa": "days", "math": "quantity"}[family]
-    args[key] = args[key] * 2
+    if family == "finance":
+        args["amount"] = args["amount"] * 10  # thousands vs lakh unit confusion
+    elif family == "sql":
+        args["region"] = {"north": "south", "south": "north", "east": "west", "west": "east"}[args["region"]]
+    elif family == "doc_qa":
+        args["category"] = "apparel" if args["category"] != "apparel" else "electronics"
+    else:
+        args["quantity"] = args["quantity"] * 2
     return args
 
 def inject_output(run, step, fault_type):
@@ -63,8 +76,13 @@ def inject_output(run, step, fault_type):
         return stale
     if fault_type == "retrieval_poisoning":
         if "documents" in out:
-            doc = out["documents"][0]
-            doc.update({"id": "returns-archive", "days": doc["days"] + 15, "version": "archived", "text": "Returns are accepted within the historical policy window."})
+            # The archived edition of the same policy outranks the current one.
+            docs = out["documents"]
+            archived = next((i for i, d in enumerate(docs) if d.get("version") == "archived"), None)
+            if archived is None:
+                raise ValueError("No archived distractor document is available")
+            docs.insert(0, docs.pop(archived))
+            out["scores"] = sorted(out.get("scores", []), reverse=True)
         else:
             out["factor"] = 1.15
             out["version"] = "archived"
@@ -76,10 +94,14 @@ def inject_output(run, step, fault_type):
         _arguments(out["arguments"], run["task_family"])
     elif fault_type == "dropped_constraint":
         constraints = out["constraints"]
-        key = {"finance": "months", "sql": "region", "doc_qa": "days", "math": "discount_pct"}[run["task_family"]]
-        fallback = {"months": 24, "region": "east", "days": 14, "discount_pct": 0}[key]
-        if constraints[key] == fallback:
-            fallback = {"months": 36, "region": "west", "days": 60, "discount_pct": 25}[key]
+        family = run["task_family"]
+        if family == "sql":
+            key, fallback = ("quarter", "all") if constraints.get("quarter") != "all" else ("region", "north")
+        else:
+            key = {"finance": "months", "doc_qa": "category", "math": "discount_pct"}[family]
+            fallback = {"months": 12, "category": "electronics", "discount_pct": 0}[key]
+        if constraints.get(key) == fallback:
+            fallback = {"months": 36, "category": "apparel", "discount_pct": 25, "region": "west", "quarter": "Q1"}[key]
         constraints[key] = fallback
     elif fault_type == "premature_final":
         out["tool"] = "final_answer"

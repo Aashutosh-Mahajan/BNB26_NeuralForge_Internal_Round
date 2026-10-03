@@ -10,16 +10,24 @@ from pathlib import Path
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
 
-def content_key(node, inputs):
-    return hashlib.sha256(canonical({"implementation": "sandbox-v1", "node": node, "inputs": inputs}).encode()).hexdigest()
+def content_key(node, inputs, extra=None):
+    """hash(node + inputs [+ provider/model/seed for LLM calls]) -> cached response."""
+    payload = {"implementation": "agent-v2", "node": node, "inputs": inputs}
+    if extra:
+        payload["extra"] = extra
+    return hashlib.sha256(canonical(payload).encode()).hexdigest()
 
 class Store:
     def __init__(self, path="data/traces.db"):
         self.path = str(path)
         self._lock = threading.RLock()
-        self._memory = sqlite3.connect(":memory:", check_same_thread=False) if self.path == ":memory:" else None
-        if self._memory is None:
+        if self.path != ":memory:":
             Path(self.path).parent.mkdir(parents=True, exist_ok=True)
+        # One long-lived connection per Store; access is serialized by the lock.
+        self._memory = sqlite3.connect(self.path, check_same_thread=False, timeout=30)
+        if self.path != ":memory:":
+            self._memory.execute("PRAGMA journal_mode=WAL")
+            self._memory.execute("PRAGMA synchronous=NORMAL")
         with self._connection() as conn:
             conn.executescript("""
                 CREATE TABLE IF NOT EXISTS runs (run_id TEXT PRIMARY KEY, created_at TEXT NOT NULL, data TEXT NOT NULL);
@@ -31,16 +39,13 @@ class Store:
     @contextmanager
     def _connection(self):
         with self._lock:
-            conn = self._memory or sqlite3.connect(self.path, timeout=30)
+            conn = self._memory
             try:
                 yield conn
                 conn.commit()
             except BaseException:
                 conn.rollback()
                 raise
-            finally:
-                if self._memory is None:
-                    conn.close()
 
     def save_run(self, run):
         with self._connection() as conn:
@@ -79,8 +84,16 @@ class Store:
         with self._connection() as conn:
             conn.execute("INSERT OR IGNORE INTO response_cache VALUES (?, ?)", (key, canonical(output)))
 
+    def delete_runs(self, run_ids):
+        with self._connection() as conn:
+            conn.executemany("DELETE FROM runs WHERE run_id=?", [(r,) for r in run_ids])
+            conn.executemany("DELETE FROM checkpoints WHERE run_id=?", [(r,) for r in run_ids])
+
+    def count(self):
+        with self._connection() as conn:
+            return conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
+
     def close(self):
-        if self._memory is not None:
-            self._memory.close()
+        self._memory.close()
 
 SQLiteStore = Store

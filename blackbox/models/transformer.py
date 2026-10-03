@@ -13,7 +13,7 @@ class StepBlameTransformer(nn.Module):
         super().__init__()
         self.project = nn.Linear(input_dim, hidden_dim)
         self.position = nn.Embedding(max_steps, hidden_dim)
-        encoder = nn.TransformerEncoderLayer(hidden_dim, num_heads, dim_feedforward=512,
+        encoder = nn.TransformerEncoderLayer(hidden_dim, num_heads, dim_feedforward=hidden_dim * 4,
                                              dropout=0.1, batch_first=True)
         self.encoder = nn.TransformerEncoder(encoder, layers)
         self.failure_head = nn.Linear(hidden_dim, 1)

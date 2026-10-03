@@ -1,48 +1,39 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  ArrowUpRight,
-  Box,
-  ChevronRight,
-  FlaskConical,
-  GitBranch,
-  GitCompareArrows,
-  Layers3,
-  Radio,
-  RefreshCw,
-  Terminal,
-  TriangleAlert,
-} from "lucide-react";
-import { api, asRuns } from "./api";
-import Overview from "./Overview";
-import {
-  Diagnosis,
-  LiveRun,
-  Replay,
-  Compare,
-  BreakRun,
-  Evaluation,
-} from "./Investigation";
-const navigation = [
-  { id: "runs", label: "Runs", icon: Layers3 },
-  { id: "live", label: "Live", icon: Radio },
-  { id: "replay", label: "Replay", icon: GitBranch },
-  { id: "compare", label: "Compare", icon: GitCompareArrows },
-  { id: "evaluation", label: "Evaluation", icon: FlaskConical },
+import { AlertTriangle, RefreshCw } from "lucide-react";
+import { api, asRuns, money } from "./api";
+import Runs from "./screens/Runs";
+import RunDetail from "./screens/RunDetail";
+import Live from "./screens/Live";
+import Replay from "./screens/Replay";
+import Compare from "./screens/Compare";
+import BreakRun from "./screens/BreakRun";
+import Evaluation from "./screens/Evaluation";
+
+const NAV = [
+  ["runs", "Runs"],
+  ["live", "Live run"],
+  ["break", "Break it"],
+  ["replay", "Replay"],
+  ["compare", "Compare"],
+  ["evaluation", "Evaluation"],
 ];
+
 export default function App() {
-  const [view, setView] = useState("runs"),
-    [runs, setRuns] = useState([]),
-    [stats, setStats] = useState(null),
-    [selected, setSelected] = useState(null),
-    [error, setError] = useState(""),
-    [loading, setLoading] = useState(true),
-    [refresh, setRefresh] = useState(0),
-    [compareIds, setCompareIds] = useState(null);
+  const [view, setView] = useState("runs");
+  const [runs, setRuns] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [llm, setLlm] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [compareIds, setCompareIds] = useState(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
   const reload = useCallback(async () => {
     try {
-      const [r, s] = await Promise.all([api("/runs"), api("/stats")]);
+      const [r, s, l] = await Promise.all([api("/runs?limit=300"), api("/stats"), api("/llm/status")]);
       setRuns(asRuns(r));
       setStats(s);
+      setLlm(l);
       setError("");
     } catch (e) {
       setError(e.message);
@@ -50,142 +41,89 @@ export default function App() {
       setLoading(false);
     }
   }, []);
+
   useEffect(() => {
     reload();
-  }, [reload, refresh]);
-  const openRun = async (id, target = "diagnosis") => {
+  }, [reload]);
+
+  const go = (target) => {
+    setView(target);
+    setError("");
+    window.scrollTo({ top: 0 });
+  };
+  const openRun = async (id, target = "run") => {
     try {
       setSelected(await api("/runs/" + id));
-      setView(target);
+      go(target);
     } catch (e) {
       setError(e.message);
     }
   };
-  const navigate = (v) => {
-    setView(v);
-    setError("");
-  };
   const compare = (a, b) => {
     setCompareIds([a, b]);
-    setView("compare");
-    setRefresh((x) => x + 1);
+    go("compare");
+    reload();
   };
+  const active = view === "run" ? "runs" : view;
+
   return (
-    <div className="app-shell">
+    <>
       <header className="topbar">
-        <button
-          className="brand"
-          onClick={() => navigate("runs")}
-          aria-label="Black Box home"
-        >
-          <span className="brand-icon">
-            <Box size={23} strokeWidth={1.6} />
-          </span>
-          BLACK BOX<span className="beta">BETA</span>
+        <button className="brand" onClick={() => go("runs")} aria-label="Black Box, go to runs">
+          <span className="brand-mark" aria-hidden="true" />
+          BLACK BOX
         </button>
-        <nav>
-          {navigation.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              className={
-                view === id ||
-                (id === "runs" && ["diagnosis", "break"].includes(view))
-                  ? "nav-active"
-                  : ""
-              }
-              onClick={() => navigate(id)}
-            >
-              <Icon size={15} />
+        <nav className="nav" aria-label="Main">
+          {NAV.map(([id, label]) => (
+            <button key={id} className={active === id ? "active" : ""} onClick={() => go(id)} aria-current={active === id ? "page" : undefined}>
               {label}
-              {id === "live" && <i className="live-dot" />}
             </button>
           ))}
         </nav>
-        <div className="workspace">
-          <span className="workspace-dot" />
-          <span>Local workspace</span>
-          <span className="avatar">BB</span>
-        </div>
+        {llm && (
+          <div className="agent-pill" title="Default agent model and OpenAI spend so far">
+            <span className="dot" />
+            Agent <strong>{llm.active_provider === "sandbox" ? "Offline sandbox" : llm.active_model}</strong>
+            {llm.openai_key_configured && <> · GPT spend <strong>{money(llm.spent_usd)}</strong></>}
+          </div>
+        )}
       </header>
-      <div className="workspace-bar">
-        <div>
-          <span>Workspace</span>
-          <ChevronRight size={12} />
-          <strong>Sandbox agents</strong>
-        </div>
-        <span className="environment">
-          <Terminal size={12} /> DEVELOPMENT <span className="v-divider" />{" "}
-          v0.1.0
-        </span>
-      </div>
       <main>
         {error && (
-          <div className="error-banner" role="alert">
-            <TriangleAlert size={17} />
-            <span>{error}. Check that the API is running on port 8010.</span>
-            <button
-              onClick={() => {
-                setError("");
-                reload();
-              }}
-            >
-              <RefreshCw size={15} /> Retry
+          <div className="banner-error" role="alert">
+            <AlertTriangle size={18} />
+            {error}. Check that the server is running on port 8010.
+            <button className="btn small" onClick={reload}>
+              <RefreshCw size={14} /> Try again
             </button>
           </div>
         )}
-        {view === "runs" && (
-          <Overview
-            runs={runs}
-            stats={stats}
-            loading={loading}
-            openRun={openRun}
-            navigate={navigate}
-            reload={() => setRefresh((x) => x + 1)}
-          />
-        )}
-        {view === "live" && (
-          <LiveRun onDone={() => setRefresh((x) => x + 1)} openRun={openRun} />
-        )}
-        {view === "diagnosis" && selected && (
-          <Diagnosis
+        {view === "runs" && <Runs runs={runs} stats={stats} loading={loading} openRun={openRun} go={go} reload={reload} />}
+        {view === "run" && selected && (
+          <RunDetail
             run={selected}
-            onBack={() => navigate("runs")}
-            onReplay={() => navigate("replay")}
-            onBreak={() => navigate("break")}
+            onBack={() => go("runs")}
+            onReplay={() => go("replay")}
+            onBreak={() => go("break")}
           />
         )}
-        {view === "replay" && (
-          <Replay
-            runs={runs}
-            selected={selected}
-            setSelected={setSelected}
-            onCompare={compare}
-            onUpdate={() => setRefresh((x) => x + 1)}
-          />
-        )}
-        {view === "compare" && <Compare runs={runs} initialIds={compareIds} />}
+        {view === "live" && <Live llm={llm} onDone={reload} openRun={openRun} />}
         {view === "break" && (
           <BreakRun
             runs={runs}
             selected={selected}
             onDone={(id) => {
-              setRefresh((x) => x + 1);
+              reload();
               openRun(id);
             }}
           />
         )}
+        {view === "replay" && (
+          <Replay runs={runs} selected={selected} setSelected={setSelected} onCompare={compare} onUpdate={reload} />
+        )}
+        {view === "compare" && <Compare runs={runs} initialIds={compareIds} />}
         {view === "evaluation" && <Evaluation />}
       </main>
-      <footer>
-        <span>
-          <span className="status-dot" />
-          All tools sandboxed
-        </span>
-        <span>Recorded. Diagnosed. Replayed.</span>
-        <a href="/api/docs" target="_blank" rel="noreferrer">
-          API reference <ArrowUpRight size={12} />
-        </a>
-      </footer>
-    </div>
+    </>
   );
 }

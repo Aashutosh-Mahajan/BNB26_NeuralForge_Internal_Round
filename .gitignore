@@ -8,11 +8,6 @@ __pycache__/
 .env
 .env.*
 !.env.example
-data/*.db
-data/*.db-shm
-data/*.db-wal
-data/metrics.json
-data/evaluation-*.json
 dashboard/node_modules/
 dashboard/dist/
 node_modules/
@@ -21,4 +16,5 @@ artifacts/
 htmlcov/
 *.log
 .cache/
-data/models/
+# Generated datasets, models, metrics, caches and the spend ledger
+data/

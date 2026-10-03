@@ -14,8 +14,8 @@ export default defineConfig({
       output: {
         manualChunks: {
           "react-vendor": ["react", "react-dom"],
-          charts: ["recharts"],
-          graph: ["@xyflow/react"],
+
+
         },
       },
     },

@@ -1,0 +1,195 @@
+import { Inbox } from "lucide-react";
+import { familyLabels, nodeLabel, pretty, short } from "./api";
+
+export function StatusBadge({ status }) {
+  const label =
+    { PASSED: "Passed", FAILED: "Failed", RUNNING: "Running", QUEUED: "Queued", ERROR: "Error" }[status] ||
+    status ||
+    "—";
+  return <span className={"badge " + (status || "").toLowerCase()}>{label}</span>;
+}
+
+export function PageHead({ title, children, actions }) {
+  return (
+    <header className="page-head">
+      <div>
+        <h1>{title}</h1>
+        {children && <p>{children}</p>}
+      </div>
+      {actions && <div className="actions">{actions}</div>}
+    </header>
+  );
+}
+
+export function Panel({ title, aside, children, className = "", bodyClass = "panel-body" }) {
+  return (
+    <section className={"panel " + className}>
+      {(title || aside) && (
+        <div className="panel-head">
+          {title && <h2>{title}</h2>}
+          {aside && <span className="aside">{aside}</span>}
+        </div>
+      )}
+      <div className={bodyClass}>{children}</div>
+    </section>
+  );
+}
+
+export function Stat({ label, value, unit, note, tone = "" }) {
+  return (
+    <div className="stat">
+      <span className="label">{label}</span>
+      <div className={"stat-value " + tone}>
+        {value}
+        {unit && <small>{unit}</small>}
+      </div>
+      {note && <div className="stat-note">{note}</div>}
+    </div>
+  );
+}
+
+export function Json({ value }) {
+  return <pre className="json">{pretty(value)}</pre>;
+}
+
+export function Empty({ title, children, action, icon: Icon = Inbox }) {
+  return (
+    <div className="empty">
+      <Icon size={30} />
+      <h3>{title}</h3>
+      {children && <p>{children}</p>}
+      {action}
+    </div>
+  );
+}
+
+export function Field({ label, hint, children }) {
+  return (
+    <label className="field">
+      <span className="label">{label}</span>
+      {children}
+      {hint && <div className="hint">{hint}</div>}
+    </label>
+  );
+}
+
+export function Segmented({ options, value, onChange }) {
+  return (
+    <div className="segmented" role="radiogroup">
+      {options.map(([id, label, disabled, title]) => (
+        <button
+          key={id}
+          type="button"
+          role="radio"
+          aria-checked={value === id}
+          className={value === id ? "active" : ""}
+          disabled={disabled}
+          title={title}
+          onClick={() => onChange(id)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function RunPicker({ runs, value, onChange, label = "Run", filter = () => true, hint }) {
+  return (
+    <Field label={label} hint={hint}>
+      <select value={value || ""} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Choose a run…</option>
+        {runs.filter(filter).map((r) => (
+          <option key={r.run_id} value={r.run_id}>
+            {r.status === "FAILED" ? "✕" : "✓"} {familyLabels[r.task_family] || r.task_family} ·{" "}
+            {(r.prompt || "").slice(0, 60)} · {short(r.run_id)}
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
+/* The flight tape: one cell per recorded step. `role(step)` returns a class:
+   root | affected | fine | checkpoint | reused | rerun | patched | pending. */
+export function Tape({ title, steps, role, flag, selected, onSelect, legend, footer, placeholders = 0 }) {
+  return (
+    <section className="tape" aria-label={title}>
+      <div className="tape-head">
+        <h2>{title}</h2>
+        {legend && (
+          <div className="tape-legend">
+            {legend.map(([color, text]) => (
+              <span key={text}>
+                <i style={{ background: color }} />
+                {text}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="tape-track" style={{ "--cols": Math.max(1, steps.length + placeholders) }}>
+        {steps.map((s) => {
+          const kind = role ? role(s) : "fine";
+          const tokens = (s.tokens_in || 0) + (s.tokens_out || 0);
+          return (
+            <button
+              key={s.step_id}
+              type="button"
+              className={"cell " + kind + (selected === s.step_id ? " selected" : "")}
+              onClick={() => onSelect?.(s)}
+              aria-pressed={selected === s.step_id}
+            >
+              {flag?.(s) && <span className="flag">{flag(s)}</span>}
+              <span className="num">STEP {String(s.step_id).padStart(2, "0")}</span>
+              <span className="name">{nodeLabel(s.node_name)}</span>
+              <span className="meta">
+                {s.tool_error
+                  ? "error"
+                  : s.llm_call
+                    ? "LLM · " + tokens + " tok"
+                    : Number(s.latency_ms || 0).toFixed(1) + " ms"}
+              </span>
+            </button>
+          );
+        })}
+        {Array.from({ length: placeholders }).map((_, i) => (
+          <div key={"p" + i} className="cell pending">
+            <span className="num">STEP {String(steps.length + i + 1).padStart(2, "0")}</span>
+            <span className="name">waiting…</span>
+          </div>
+        ))}
+      </div>
+      {footer && <div className="tape-foot">{footer}</div>}
+    </section>
+  );
+}
+
+export function MiniTape({ count = 10, suspect, status }) {
+  return (
+    <span className={"mini-tape " + (status || "").toLowerCase()} aria-label={suspect ? "Root cause at step " + suspect : "All steps"}>
+      {Array.from({ length: count }).map((_, i) => (
+        <i
+          key={i}
+          className={status === "FAILED" && suspect && i + 1 === suspect ? "root" : ""}
+        />
+      ))}
+    </span>
+  );
+}
+
+export function HBars({ rows }) {
+  return (
+    <div className="hbars">
+      {rows.map((r) => (
+        <div key={r.label} className={"hbar " + (r.kind || "")}>
+          <span>{r.label}</span>
+          <div className="track">
+            <div className="fill" style={{ width: Math.max(0, Math.min(100, r.value * 100)) + "%" }} />
+          </div>
+          <span className="val">{r.value == null ? "—" : (r.value * 100).toFixed(1) + "%"}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
