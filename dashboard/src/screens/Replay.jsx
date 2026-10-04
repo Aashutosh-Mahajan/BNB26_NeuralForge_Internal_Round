@@ -18,7 +18,6 @@ export default function Replay({ runs, selected, setSelected, initialCandidate, 
   const [picked, setPicked] = useState(0);
   const [instruction, setInstruction] = useState("");
   const [model, setModel] = useState("");
-  const [temperature, setTemperature] = useState(1);
   const [k, setK] = useState(5);
   const [result, setResult] = useState(null);
   const [replayRun, setReplayRun] = useState(null);
@@ -77,9 +76,7 @@ export default function Replay({ runs, selected, setSelected, initialCandidate, 
           ? { output: JSON.parse(patch) }
           : mode === "prompt"
             ? { prompt: instruction }
-            : mode === "model"
-              ? { model }
-              : { temperature: Number(temperature) };
+            : { model };
       const r = await post("/runs/" + id + "/replay", { from_step: step, patch: body, k });
       setResult(r);
       setReplayRun(await api("/runs/" + r.run_id));
@@ -140,7 +137,6 @@ export default function Replay({ runs, selected, setSelected, initialCandidate, 
                   ["output", "Replace the output"],
                   ["prompt", "Add to the prompt", !isLlm, "LLM steps only"],
                   ["model", "Use another model", !isLlm, "LLM steps only"],
-                  ["temperature", "Change temperature", !isLlm, "LLM steps only"],
                 ]}
               />
             </Field>
@@ -179,11 +175,6 @@ export default function Replay({ runs, selected, setSelected, initialCandidate, 
             {mode === "model" && (
               <Field label="Model for this step" hint="For example gpt-6.1-sol. Costs more per call.">
                 <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="gpt-6.1-sol" />
-              </Field>
-            )}
-            {mode === "temperature" && (
-              <Field label={`Temperature: ${temperature}`}>
-                <input type="range" min="0" max="1.5" step="0.1" value={temperature} onChange={(e) => setTemperature(e.target.value)} />
               </Field>
             )}
           </Panel>
