@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowUpRight, Check, CheckCircle2, ChevronRight, CircleDot, Database, GitBranch, GitCompareArrows, Layers3, Play, Radar, RotateCcw, ScanLine, ShieldCheck } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, CheckCircle2, ChevronRight, CircleDot, Database, GitBranch, GitCompareArrows, Layers3, Moon, Play, Radar, RotateCcw, ScanLine, ShieldCheck, Sun } from "lucide-react";
 
 const CAPABILITIES = [
   [ScanLine, "A record of every step", "Keep inputs, outputs, tool calls, and state changes together in one inspectable execution history."],
@@ -22,10 +22,10 @@ function TraceIllustration() {
   </div>;
 }
 
-export default function Home({ go, Brand }) {
+export default function Home({ go, Brand, theme, toggleTheme }) {
   const scrollTo = id => document.getElementById(id)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
   return <div className="landing"><a className="skip-link" href="#home-content" onClick={e => { e.preventDefault(); document.getElementById("home-content")?.focus(); }}>Skip to content</a>
-    <header className="landing-header"><Brand onClick={() => go("home")} /><nav aria-label="Product navigation"><button onClick={() => scrollTo("how-it-works")}>How it works</button><button onClick={() => scrollTo("capabilities")}>Capabilities</button><button onClick={() => go("evaluation")}>Evaluation</button></nav><button className="btn primary" onClick={() => go("runs")}>Open workspace <ArrowUpRight size={16} /></button></header>
+    <header className="landing-header"><Brand onClick={() => go("home")} /><nav aria-label="Product navigation"><button onClick={() => scrollTo("how-it-works")}>How it works</button><button onClick={() => scrollTo("capabilities")}>Capabilities</button><button onClick={() => go("evaluation")}>Evaluation</button></nav><div style={{ display: "flex", alignItems: "center", gap: 12 }}><button className="theme-toggle-btn" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}>{theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}</button><button className="btn primary" onClick={() => go("runs")}>Open workspace <ArrowUpRight size={16} /></button></div></header>
     <main id="home-content" className="landing-main" tabIndex={-1}>
       <section className="hero"><div className="hero-copy"><span className="eyebrow-pill"><span className="status-dot" /> A FLIGHT RECORDER FOR AI AGENTS</span><h1>Every step recorded.<br /><span>Every failure<br />understood.</span></h1><p>Your agent took a wrong turn. Find where it happened, see the evidence, and explore a better path without starting over.</p><div className="hero-actions"><button className="btn primary" onClick={() => go("runs")}>Explore the workspace <ArrowRight size={17} /></button><button className="btn" onClick={() => go("live")}><Play size={15} /> Record a run</button></div><div className="hero-assurances"><span><Check size={14} /> Checkpointed replay</span><span><Check size={14} /> Evidence-based diagnosis</span></div></div><TraceIllustration /></section>
       <section className="product-strip" aria-label="Investigation workflow"><span>CLARITY AT EVERY STAGE</span><div><Database size={17} /> Record <ChevronRight size={15} /><Radar size={17} /> Investigate <ChevronRight size={15} /><GitBranch size={17} /> Test alternatives <ChevronRight size={15} /><CheckCircle2 size={17} /> Verify</div></section>

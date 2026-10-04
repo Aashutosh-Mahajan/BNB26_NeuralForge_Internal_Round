@@ -107,7 +107,11 @@ class SemanticEncoder:
                 from sentence_transformers import CrossEncoder, SentenceTransformer
                 self._embedder = SentenceTransformer(EMBED_MODEL, device=self._device())
                 if self.use_nli:
-                    self._nli = CrossEncoder(NLI_MODEL, device=self._device(), max_length=192)
+                    try:
+                        self._nli = CrossEncoder(NLI_MODEL, device=self._device(), max_length=192, local_files_only=True)
+                    except Exception as nli_exc:
+                        logger.info("NLI model not present locally (%s); continuing without NLI cross-encoder.", nli_exc)
+                        self._nli = None
             except Exception as exc:  # Offline or missing package: deterministic fallback.
                 logger.warning("Semantic encoders unavailable (%s); using hashed embeddings.", exc)
                 self.fallback = True

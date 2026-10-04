@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Activity, AlertTriangle, ArrowLeft, ArrowUpRight, Box, ChevronRight, FlaskConical, GitCompareArrows, GitFork, LayoutDashboard, RefreshCw, Radio, ShieldCheck } from "lucide-react";
+import { Activity, AlertTriangle, ArrowLeft, ArrowUpRight, Box, ChevronRight, FlaskConical, GitCompareArrows, GitFork, LayoutDashboard, Moon, RefreshCw, Radio, ShieldCheck, Sun } from "lucide-react";
 import { api, asRuns } from "./api";
 import Home from "./screens/Home";
 import Runs from "./screens/Runs";
@@ -28,6 +28,19 @@ export default function App() {
   const [route, setRoute] = useState(routeFromHash);
   const requestedView = route.split("/")[0];
   const view = ["home", "run", ...NAV.map(([id]) => id)].includes(requestedView) ? requestedView : "home";
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem("blackbox_theme");
+    if (saved) return saved;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("blackbox_theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => (t === "dark" ? "light" : "dark"));
+
   const [runs, setRuns] = useState([]);
   const [stats, setStats] = useState(null);
   const [llm, setLlm] = useState(null);
@@ -77,7 +90,7 @@ export default function App() {
   const active = view === "run" ? "runs" : view;
   const trained = modelStatus?.available === true;
 
-  if (view === "home") return <Home go={go} Brand={Brand} />;
+  if (view === "home") return <Home go={go} Brand={Brand} theme={theme} toggleTheme={toggleTheme} />;
 
   return <div className="workspace">
     <a className="skip-link" href="#workspace-content" onClick={e => { e.preventDefault(); document.getElementById("workspace-content")?.focus(); }}>Skip to content</a>
@@ -90,7 +103,17 @@ export default function App() {
       <div className="sidebar-bottom"><button onClick={() => go("home")}><ArrowLeft size={16} /> Product homepage</button><span><span className={"status-dot " + (error ? "offline" : loading ? "pending" : "")} />{error ? "Backend unavailable" : loading ? "Connecting…" : "Connected to local backend"}</span></div>
     </aside>
     <div className="workspace-body">
-      <header className="workspace-header"><div className="breadcrumb">Workspace <ChevronRight size={14} /><strong>{view === "run" ? "Run investigation" : NAV.find(([id]) => id === view)?.[1]}</strong></div><div className="header-status"><span className="environment-tag"><span className={"status-dot " + (error ? "offline" : loading ? "pending" : "")} />{error ? "Disconnected" : loading ? "Connecting" : "Local workspace"}</span><button className="icon-button" onClick={reload} aria-label="Refresh workspace"><RefreshCw size={16} /></button><span className="user-avatar" aria-label="Black Box workspace">BB</span></div></header>
+      <header className="workspace-header">
+        <div className="breadcrumb">Workspace <ChevronRight size={14} /><strong>{view === "run" ? "Run investigation" : NAV.find(([id]) => id === view)?.[1]}</strong></div>
+        <div className="header-status">
+          <span className="environment-tag"><span className={"status-dot " + (error ? "offline" : loading ? "pending" : "")} />{error ? "Disconnected" : loading ? "Connecting" : "Local workspace"}</span>
+          <button className="icon-button theme-toggle-btn" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}>
+            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+          <button className="icon-button" onClick={reload} aria-label="Refresh workspace"><RefreshCw size={16} /></button>
+          <span className="user-avatar" aria-label="Black Box workspace">BB</span>
+        </div>
+      </header>
       <main id="workspace-content" className="workspace-content" tabIndex={-1}>
         {error && <div className="banner-error" role="alert"><AlertTriangle size={18} /><span>{error}. Check the local backend on port 8010.</span><button className="btn small" onClick={reload}><RefreshCw size={14} /> Retry</button></div>}
         {view === "runs" && <><div className="workspace-eyebrow"><span className="status-dot" /> EXECUTION INTELLIGENCE</div><Runs runs={runs} stats={stats} loading={loading} openRun={openRun} go={go} reload={reload} /><div className="workspace-footnote"><span><ShieldCheck size={15} />{loading ? "Checking diagnosis engine…" : trained ? "Trained diagnosis model available" : "Rule-based diagnosis · trained model not loaded"}</span><span>Live agent: {llm ? llm.active_provider === "sandbox" ? "Offline sandbox" : llm.active_model || llm.active_provider : "Unavailable"}{llm?.openai_key_configured ? ` (or ${llm.openai_model})` : ""}{benchModel ? ` · benchmarks on ${benchModel}` : ""}</span></div></>}

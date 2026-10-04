@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { FlaskConical } from "lucide-react";
 import { api, familyLabels, nodeLabel, percent } from "../api";
 import { Empty, HBars, PageHead, Panel, Segmented, Stat } from "../ui";
-import { CostAtScale, HybridJudge, NaturalLocal, Reliability, Robustness } from "./EvalExtras";
+import { CostAtScale, HybridJudge, NaturalLocal, Reliability } from "./EvalExtras";
 
 const SPLITS = [
   ["test", "Unseen prompts"],
@@ -259,9 +259,7 @@ export default function Evaluation() {
       <div className="section-gap">
         <NaturalLocal n={m.extras?.natural_local} />
       </div>
-      <div className="section-gap">
-        <Robustness hard={m.extras?.hard_negatives} heldout={m.extras?.heldout_workflow} live={m.extras?.live_recovery} />
-      </div>
+
       <div className="section-gap">
         <HybridJudge h={m.extras?.hybrid_judge} />
       </div>

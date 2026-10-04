@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, LoaderCircle, Play, Radio } from "lucide-react";
 import { compactJson, familyLabels, money, nodeLabel, post } from "../api";
-import { Capabilities, Empty, Field, PageHead, Panel, StatusBadge, Tape } from "../ui";
+import { Empty, Field, PageHead, Panel, StatusBadge, Tape } from "../ui";
 
 const PLANTS = [
   ["", "No planted fault"],
@@ -9,13 +9,6 @@ const PLANTS = [
   ["2:wrong_arguments", "Step 2 passes a wrong value"],
   ["1:dropped_constraint", "Step 1 drops a task constraint"],
   ["9:hallucinated_fact", "Step 9 states an invented number"],
-];
-const ADAPTERS = [
-  ["Built-in agent", { record: true, diagnose: true, checkpoint: true, fork: true, resume: true, selective_reuse: true }, "This screen"],
-  ["Any LangGraph graph", { record: true, diagnose: true, checkpoint: true, fork: true, resume: true, selective_reuse: false }, "blackbox.wrap(graph) · examples/expense_agent.py"],
-  ["Claude Code", { record: true, diagnose: true }, "integrations/claude_code_settings.json (http hooks)"],
-  ["Claude / Cursor / Codex as a client", { diagnose: true }, "python -m blackbox.mcp_server (MCP tools)"],
-  ["Devin", {}, "Not supported: its session API does not expose step checkpoints we could verify"],
 ];
 
 const EXAMPLES = {
@@ -216,16 +209,6 @@ export default function Live({ llm, onDone, openRun }) {
           </section>
         </div>
       </div>
-      <Panel className="section-gap" title="Which agents Black Box can work with" aside="what each integration really supports">
-        <div className="stack" style={{ gap: 10 }}>
-          {ADAPTERS.map(([name, caps, how]) => (
-            <div key={name}>
-              <Capabilities caps={caps} adapter={name} />
-              <p className="small muted" style={{ marginTop: -10 }}>{how}</p>
-            </div>
-          ))}
-        </div>
-      </Panel>
     </>
   );
 }
