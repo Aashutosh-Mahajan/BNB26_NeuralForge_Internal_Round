@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Activity, AlertTriangle, ArrowLeft, ArrowUpRight, Box, ChevronRight, FlaskConical, GitCompareArrows, GitFork, LayoutDashboard, Moon, RefreshCw, Radio, ShieldCheck, Sun } from "lucide-react";
+import { Activity, AlertTriangle, ArrowLeft, ArrowUpRight, Box, ChevronRight, GitCompareArrows, GitFork, LayoutDashboard, Moon, RefreshCw, Radio, ShieldCheck, Sun } from "lucide-react";
 import { api, asRuns } from "./api";
 import Home from "./screens/Home";
 import Runs from "./screens/Runs";
@@ -7,7 +7,6 @@ import RunDetail from "./screens/RunDetail";
 import Live from "./screens/Live";
 import Replay from "./screens/Replay";
 import Compare from "./screens/Compare";
-import BreakRun from "./screens/BreakRun";
 import Evaluation from "./screens/Evaluation";
 
 const NAV = [
@@ -15,13 +14,12 @@ const NAV = [
   ["live", "Live execution", Radio],
   ["replay", "Replay & alternatives", GitFork],
   ["compare", "Trace comparison", GitCompareArrows],
-  ["break", "Failure lab", FlaskConical],
   ["evaluation", "Model evaluation", Activity],
 ];
 const routeFromHash = () => window.location.hash.slice(1) || "home";
 
 export function Brand({ onClick }) {
-  return <button className="identity" onClick={onClick} aria-label="Black Box home"><span className="identity-icon"><Box size={22} strokeWidth={1.7} /></span><span>blackbox<span className="identity-period">.</span><small>AGENT FLIGHT RECORDER</small></span></button>;
+  return <button className="identity" onClick={onClick} aria-label="BlackBox home"><span className="identity-icon"><Box size={22} strokeWidth={1.7} /></span><span>BlackBox<span className="identity-period">.</span><small>AGENT FLIGHT RECORDER</small></span></button>;
 }
 
 export default function App() {
@@ -99,7 +97,7 @@ export default function App() {
       <div className="workspace-label"><span className="workspace-avatar">B</span><div>Black Box workspace<small>Local environment</small></div><ChevronRight size={15} /></div>
       <span className="nav-caption">WORKSPACE</span>
       <nav className="workspace-nav" aria-label="Workspace">{NAV.map(([id, label, Icon]) => <button key={id} className={active === id ? "active" : ""} onClick={() => go(id)} aria-current={active === id ? "page" : undefined}><Icon size={18} /><span>{label}</span></button>)}</nav>
-      <div className="sidebar-guide"><span className="guide-icon"><ShieldCheck size={20} /></span><h3>Make every step explainable.</h3><p>Inspect a failure. Test an alternative. Keep the evidence.</p><button onClick={() => go("break")}>Explore the failure lab <ArrowUpRight size={15} /></button></div>
+      <div className="sidebar-guide"><span className="guide-icon"><ShieldCheck size={20} /></span><h3>Make every step explainable.</h3><p>Inspect a failure. Test an alternative. Keep the evidence.</p><button onClick={() => go("replay")}>Explore replay & alternatives <ArrowUpRight size={15} /></button></div>
       <div className="sidebar-bottom"><button onClick={() => go("home")}><ArrowLeft size={16} /> Product homepage</button><span><span className={"status-dot " + (error ? "offline" : loading ? "pending" : "")} />{error ? "Backend unavailable" : loading ? "Connecting…" : "Connected to local backend"}</span></div>
     </aside>
     <div className="workspace-body">
@@ -117,14 +115,13 @@ export default function App() {
       <main id="workspace-content" className="workspace-content" tabIndex={-1}>
         {error && <div className="banner-error" role="alert"><AlertTriangle size={18} /><span>{error}. Check the local backend on port 8010.</span><button className="btn small" onClick={reload}><RefreshCw size={14} /> Retry</button></div>}
         {view === "runs" && <><div className="workspace-eyebrow"><span className="status-dot" /> EXECUTION INTELLIGENCE</div><Runs runs={runs} stats={stats} loading={loading} openRun={openRun} go={go} reload={reload} /><div className="workspace-footnote"><span><ShieldCheck size={15} />{loading ? "Checking diagnosis engine…" : trained ? "Trained diagnosis model available" : "Rule-based diagnosis · trained model not loaded"}</span><span>Live agent: {llm ? llm.active_provider === "sandbox" ? "Offline sandbox" : llm.active_model || llm.active_provider : "Unavailable"}{llm?.openai_key_configured ? ` (or ${llm.openai_model})` : ""}{benchModel ? ` · benchmarks on ${benchModel}` : ""}</span></div></>}
-        {view === "run" && (selected ? <RunDetail run={selected} onBack={() => go("runs")} onReplay={candidate => { setRepairCandidate(candidate ? { ...candidate, runId: selected.run_id } : null); go("replay"); }} onBreak={() => go("break")} /> : <div className="empty"><h3>Loading investigation…</h3><button className="btn" onClick={() => go("runs")}>Return to overview</button></div>)}
+        {view === "run" && (selected ? <RunDetail run={selected} onBack={() => go("runs")} onReplay={candidate => { setRepairCandidate(candidate ? { ...candidate, runId: selected.run_id } : null); go("replay"); }} /> : <div className="empty"><h3>Loading investigation…</h3><button className="btn" onClick={() => go("runs")}>Return to overview</button></div>)}
         {view === "live" && <Live llm={llm} onDone={reload} openRun={openRun} />}
-        {view === "break" && <BreakRun runs={runs} selected={selected} onDone={id => { reload(); openRun(id); }} />}
         {view === "replay" && <Replay runs={runs} selected={selected} setSelected={setSelected} initialCandidate={repairCandidate} onCompare={compare} onUpdate={reload} />}
         {view === "compare" && <Compare runs={runs} initialIds={compareIds} />}
         {view === "evaluation" && <Evaluation />}
       </main>
-      <footer className="workspace-footer"><span>blackbox. <span>Every execution tells a story.</span></span><span>Record / Investigate / Replay</span></footer>
+      <footer className="workspace-footer"><span>BlackBox. <span>Every execution tells a story.</span></span><span>Record / Investigate / Replay</span></footer>
     </div>
   </div>;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, ArrowLeft, Download, FileCode2, GitBranch, Sparkles, Zap } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Download, FileCode2, GitBranch, Sparkles } from "lucide-react";
 import { api, diagnosisOf, familyLabels, money, nodeLabel, percent, post, short } from "../api";
 import { BUILTIN_CAPS, Capabilities, DepGraph, Json, Panel, Segmented, StatusBadge, Tape } from "../ui";
 import Alternatives, { CheckList } from "./Alternatives";
@@ -149,7 +149,7 @@ function Inspector({ step }) {
   );
 }
 
-export default function RunDetail({ run: initial, onBack, onReplay, onBreak }) {
+export default function RunDetail({ run: initial, onBack, onReplay }) {
   const [run, setRun] = useState(initial);
   useEffect(() => setRun(initial), [initial]);
   const refresh = () => api("/runs/" + run.run_id).then(setRun).catch(() => {});
@@ -209,11 +209,7 @@ export default function RunDetail({ run: initial, onBack, onReplay, onBreak }) {
                 </button>
               )}
             </>
-          ) : crashed || external ? null : (
-            <button className="btn primary" onClick={onBreak}>
-              <Zap size={16} /> Break this run
-            </button>
-          )}
+          ) : null}
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Play, RefreshCw, Zap } from "lucide-react";
+import { Play, RefreshCw } from "lucide-react";
 import { familyLabels, money, nodeLabel, percent, short, time } from "../api";
 import { Empty, MiniTape, PageHead, Panel, Stat, StatusBadge } from "../ui";
 
@@ -64,9 +64,6 @@ export default function Runs({ runs, stats, loading, openRun, go, reload }) {
         title="Execution overview"
         actions={
           <>
-            <button className="btn" onClick={() => go("break")}>
-              <Zap size={16} /> Break a run
-            </button>
             <button className="btn primary" onClick={() => go("live")}>
               <Play size={16} /> Start a run
             </button>
@@ -113,7 +110,7 @@ export default function Runs({ runs, stats, loading, openRun, go, reload }) {
               ))}
             </div>
           ) : (
-            <p className="muted">No failures yet. Break a run to see one diagnosed.</p>
+            <p className="muted">No failures recorded yet. Failed executions will appear here for investigation.</p>
           )}
           {components.length > 0 && (
             <p className="small muted" style={{ marginTop: 14 }}>
